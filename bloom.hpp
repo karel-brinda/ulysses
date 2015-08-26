@@ -100,6 +100,6 @@ int bloom_query(const bloom *bf, const uchar *gstr, int dir);
 
 void read_ID_to_taxon_map(const std::string & ID_to_taxon_map_filename);
 
-std::map<std::string,bloom> * bloom_create_many_blooms(bloom * exclude_bloom, coor as_b, unsigned int nh, const char *seedstr, const char *fn, int both_directions);
+std::map<std::string,bloom> * bloom_create_many_blooms(const bloom * initial_bf, const bloom * exclude_bf, coor as_b, unsigned int nh, const char *seedstr, const char *fn, int both_directions);
 
 #endif

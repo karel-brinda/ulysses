@@ -72,7 +72,7 @@ int usage(){
 void estimate_bloom_size(bitvector::size_type size, bitvector::size_type ones, uint32_t k,
                          double & dens, double & est){
     dens=((double)ones)/size;
-    est=-((double)size)*log(1-dens)/k;    
+    est=-((double)size)*log1p(-dens)/k;
 }
 
 
@@ -183,6 +183,7 @@ int main_create_many(int argc,char** argv){
     std::string Multi_fasta_filename = "/dev/fd/0"; //default use stdin
     std::string ID_to_taxon_map_filename;
     std::string exclude_bloom_filename;
+    std::string initial_bloom_filename;
     
     bool print_stats = false;
     
@@ -206,6 +207,9 @@ int main_create_many(int argc,char** argv){
             case 'm' :
                 ID_to_taxon_map_filename = optarg;
                 break;	
+            case 'i':
+                initial_bloom_filename = optarg;
+                break;            
             case 'e':
                 exclude_bloom_filename = optarg;
                 break;
@@ -225,6 +229,7 @@ int main_create_many(int argc,char** argv){
         fprintf(stderr, "Options: -s STR seed [" DEFAULT_SEED "]\n");
         fprintf(stderr, "         -a INT size of the array in bytes [1048576]\n");
         fprintf(stderr, "         -h INT number of hash functions [6]\n");
+        fprintf(stderr, "         -i BLM initial bloom filter to OR with (must have hash and size the same)\n");
         fprintf(stderr, "         -r     include also reverse complements of kmers\n");
         fprintf(stderr, "         -t       print statistics of the final BF\n");
         fprintf(stderr, "         -e BLM exclude k-mers present in BLM bloom filter\n");
@@ -239,11 +244,19 @@ int main_create_many(int argc,char** argv){
     read_ID_to_taxon_map(ID_to_taxon_map_filename);
     fprintf(stderr, "DONE.\n");
     
+    bloom initial_bf(0,0,nullptr);
+    if (initial_bloom_filename.size()>0){
+        bloom_load(&initial_bf,initial_bloom_filename.c_str());
+        assert((initial_bf.nh==(bitvector::size_type)nh)&&(initial_bf.array.size()==(bitvector::size_type)(as_B*8)));
+    }
+    
     bloom exclude_bf(0,0,nullptr);
     if (exclude_bloom_filename.size()>0){
         bloom_load(&exclude_bf,exclude_bloom_filename.c_str());
     }
-    std::map<std::string,bloom> * taxon_bloom_map = bloom_create_many_blooms(exclude_bloom_filename.size()>0?&exclude_bf:nullptr,
+    std::map<std::string,bloom> * taxon_bloom_map = bloom_create_many_blooms(
+        initial_bloom_filename.size()>0?&initial_bf:nullptr,       
+        exclude_bloom_filename.size()>0?&exclude_bf:nullptr,
                              as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r);
     
     //save all of them to directory

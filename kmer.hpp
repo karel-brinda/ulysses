@@ -21,6 +21,6 @@ int compress_kmer(const uchar *gstr,const seed_t *seed, unsigned int bytes, ucha
 
 int decompress_kmer(const uchar *compr, uchar *gstr, unsigned int bytes);
 
-int compute_hashes(const uchar *data, const int len, uint32_t *hashes, const int nh);
+int compute_hashes(const uchar *data, const int len, uint64_t *hashes, const int nh);
 
 #endif

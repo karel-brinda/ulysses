@@ -82,7 +82,7 @@ int bloom_create(bloom *bf, const char *fn, int both_directions){
     unsigned int bytes_kmer=compressed_kmer_size(weight);
     
     uchar * compr_kmer = new uchar[bytes_kmer];
-    uint32_t * hashes1 = new uint32_t[nh];
+    uint64_t * hashes1 = new uint64_t[nh+1];
     
     fp = gzopen(fn, "r");
     assert(fp != Z_NULL);
@@ -292,7 +292,7 @@ int bloom_query(const bloom *bf, const uchar *gstr, int direction){
     unsigned int bytes_kmer=compressed_kmer_size(weight);
     
     uchar * compr_kmer = new uchar[bytes_kmer];
-    uint32_t * hashes1 = new uint32_t[nh];
+    uint64_t * hashes1 = new uint64_t[nh+1];
             
     if(compress_kmer(gstr,&bf->seed,bytes_kmer,compr_kmer,direction)!=0){
         return -1;
@@ -335,7 +335,9 @@ void read_ID_to_taxon_map(const string & ID_to_taxon_map_filename) {
 
 
 
-map<string,bloom> * bloom_create_many_blooms(bloom * exclude_bf, coor as_b, unsigned int nh, const char *seedstr, const char *fn, int both_directions){
+map<string,bloom> * bloom_create_many_blooms(const bloom * initial_bf, const bloom * exclude_bf,
+                                             coor as_b, unsigned int nh, 
+                                             const char *seedstr, const char *fn, int both_directions){
     DF1;
     
     gzFile fp;
@@ -354,7 +356,7 @@ map<string,bloom> * bloom_create_many_blooms(bloom * exclude_bf, coor as_b, unsi
     unsigned int bytes_kmer=compressed_kmer_size(weight);
     
     uchar * compr_kmer = new uchar[bytes_kmer];
-    uint32_t * hashes1 = new uint32_t[nh];        
+    uint64_t * hashes1 = new uint64_t[nh+1];        
     //string taxid;
     
     //Create taxon bloom filter map
@@ -374,9 +376,13 @@ map<string,bloom> * bloom_create_many_blooms(bloom * exclude_bf, coor as_b, unsi
             //Return already used bloom, or a fresh initialized to 0	            
             bloom & bf = (*taxon_bloom_map)[taxid];	
             
-            if (bf.array.size()<=0)  //This is a new bf, not initialized yet
-                bf.init(as_b, nh, seedstr);
-                
+            if (bf.array.size()<=0)  {//This is a new bf, not initialized yet
+                if (initial_bf==nullptr)
+                    bf.init(as_b, nh, seedstr);
+                else
+                    bf = *initial_bf;
+            }
+            
             const uchar *dna=(uchar*)seq->seq.s;
                         
             for (int i=0;i<l-span+1;i++){

@@ -77,10 +77,10 @@ int decompress_kmer(const uchar *compr, uchar *gstr, unsigned int bytes) {
     return 0;
 }
 
-int compute_hashes(const uchar *data, const int len, uint32_t *hashes, const int nh) {
+int compute_hashes(const uchar *data, const int len, uint64_t *hashes, const int nh) {
     
-    for(int j=0;j<nh;j++){
-        MurmurHash3_x86_32(data, len, j, &hashes[j]);
+    for(int j=0;j<((nh+1)/2);j++){
+        MurmurHash3_x64_128(data, len, j, &hashes[2*j]);
     }
     
     return 0;

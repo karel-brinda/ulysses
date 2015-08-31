@@ -65,6 +65,7 @@ int usage(){
     fprintf(stderr, "         dump          dump of a Bloom filter\n");
     fprintf(stderr, "         hamming       print Hamming distance matrix for given Bloom filters\n");
     fprintf(stderr, "         symmdiffmat   print set symmetric distance matrix for given Bloom filters\n");
+    fprintf(stderr, "         query         query a Bloom filter\n");
     fprintf(stderr, "\n");
     return 1;
 }

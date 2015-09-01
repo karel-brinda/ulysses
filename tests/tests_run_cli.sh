@@ -22,7 +22,7 @@ mkdir -p _output
 	./cli/05*.sh
 }
 
-@test "CLI: ulysses stats" {
+@test "CLI: ulysses shrink" {
 	./cli/06*.sh
 }
 
@@ -30,7 +30,7 @@ mkdir -p _output
 	./cli/07*.sh
 }
 
-@test "CLI: ulysses shrink" {
+@test "CLI: ulysses stats" {
 	./cli/08*.sh
 }
 

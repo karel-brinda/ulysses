@@ -3,13 +3,18 @@ os:
 - linux
 cache:
   apt: true
+sudo: required
 compiler:
 - clang
 - gcc
-#install: 
-#- sudo apt-get install -qq bats
+before_install:
+- sudo add-apt-repository ppa:apokluda/boost1.53 --yes
+- sudo apt-get update
+install: 
+- sudo apt-get install -qq bats
+- sudo apt-get install libboost-regex1.53-dev
 before_script:
 - cmake . && make
 script:
-- cd tests && ./tests_install_bats.sh
+#- cd tests && ./tests_install_bats.sh
 - cd tests && bats ${CI:+--tap} ./tests_run_cli.sh

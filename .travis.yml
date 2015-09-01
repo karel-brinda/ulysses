@@ -6,10 +6,10 @@ cache:
 compiler:
 - clang
 - gcc
-install: 
-- sudo apt-get install -qq bats
+#install: 
+#- sudo apt-get install -qq bats
 before_script:
 - cmake . && make
 script:
+- cd tests && ./tests_install_bats.sh
 - cd tests && bats ${CI:+--tap} ./tests_run_cli.sh
-

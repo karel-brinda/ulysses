@@ -8,6 +8,7 @@ compiler:
 - clang
 - gcc
 before_install:
+- sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
 - sudo add-apt-repository ppa:apokluda/boost1.53 --yes
 - sudo add-apt-repository ppa:duggan/bats --yes
 - sudo apt-get update

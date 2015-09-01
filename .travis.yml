@@ -14,7 +14,9 @@ before_install:
 install: 
 - sudo apt-get install -qq bats
 - sudo apt-get install libboost-regex1.53-dev libboost-serialization1.53-dev
-before_script:
+- sudo apt-get install g++-4.8
+- sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 90
+- sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 90before_script:
 - cmake . && make
 script:
 #- cd tests && ./tests_install_bats.sh

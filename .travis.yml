@@ -1,0 +1,15 @@
+language: cpp
+os:
+- linux
+cache:
+  apt: true
+compiler:
+- clang
+- gcc
+install: 
+- sudo apt-get install -qq bats
+before_script:
+- cmake . && make
+script:
+- cd tests && bats ${CI:+--tap} ./tests_run_cli.sh
+

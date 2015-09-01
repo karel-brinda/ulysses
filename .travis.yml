@@ -9,6 +9,7 @@ compiler:
 - gcc
 before_install:
 - sudo add-apt-repository ppa:apokluda/boost1.53 --yes
+- sudo add-apt-repository ppa:duggan/bats --yes
 - sudo apt-get update
 install: 
 - sudo apt-get install -qq bats

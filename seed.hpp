@@ -20,6 +20,8 @@
 class seed_t{
 public:
     seed_t(const char *seedstr);
+    seed_t(const seed_t &seed);
+
     char seedstr[MAX_SEED_SPAN];
     int weight;
     int span;

@@ -44,8 +44,10 @@ typedef boost::dynamic_bitset<uint64_t> bitvector;
 class bloom {
 public:
     bloom();
+    bloom(const bloom &bf);
     bloom(coor as_b, unsigned int nh, const char *seedstr);
     ~bloom();    
+
 
     void init(coor as_b, unsigned int nh, const char *seedstr);
 

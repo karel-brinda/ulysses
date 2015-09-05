@@ -8,6 +8,16 @@
 
 #include "seed.hpp"
 
+seed_t::seed_t(const seed_t &seed)
+    :weight(seed.weight),span(seed.span)
+{
+    strcpy(this->seedstr,seed.seedstr);
+
+    memcpy(&this->shape[0], seed.shape[0], MAX_SEED_SPAN);
+    memcpy(&this->shape[1], seed.shape[1], MAX_SEED_SPAN);
+}
+
+
 seed_t::seed_t(const char *seedstr) {
     seed_t * seed = this;
     

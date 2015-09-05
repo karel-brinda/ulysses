@@ -30,8 +30,15 @@ boost::regex re_illegal_newick("["+_ILLEGAL_NEWICK_CHARS+"]");
 
 KSEQ_INIT(gzFile, gzread)
 
-bloom::bloom():program_version_tag(PROGRAM_VERSION_TAG),nh(0),array(),seed(NULL)
+bloom::bloom():
+    program_version_tag(PROGRAM_VERSION_TAG),nh(0),array(),seed(NULL)
 {}
+
+bloom::bloom(const bloom &bf):
+    program_version_tag(PROGRAM_VERSION_TAG),nh(bf.nh),array(bf.array),seed(bf.seed)
+{
+}
+
 
 bloom::bloom(coor as_b, unsigned int nh, const char *seedstr):program_version_tag(PROGRAM_VERSION_TAG),nh(0),array(),seed(seedstr) {
     this->init(as_b,nh,seedstr);

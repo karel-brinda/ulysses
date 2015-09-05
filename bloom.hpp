@@ -46,7 +46,17 @@ public:
     bloom();
     bloom(coor as_b, unsigned int nh, const char *seedstr);
     ~bloom();    
+
     void init(coor as_b, unsigned int nh, const char *seedstr);
+
+    int create(const char *fasta_fn,int both_directions);
+    void print(int verbose) const;
+    int load(const char *fn);
+    int save(const char *fn) const;
+    int shrink(long factor);
+    int query(const uchar *gstr, int dir) const;
+    bitvector::size_type ones() const;
+
     uint32_t program_version_tag;
     uint32_t nh;
     bitvector array;
@@ -73,16 +83,6 @@ private:
 
 //int bloom_init(bloom *bf, coor as, int nh, const char *seedstr);
 
-int bloom_create(bloom *bf, const char *fasta_fn,int both_directions);
-
-void bloom_print(const bloom *bf, int verbose);
-
-int bloom_load(bloom *bf, const char *fn);
-
-int bloom_save(const bloom *bf, const char *fn);
-
-int bloom_shrink(bloom *bf, long factor);
-
 //int bloom_free(bloom *bf);
 
 int bloom_or(bloom *bf1, const bloom *bf2);
@@ -94,9 +94,6 @@ int bloom_xor(const bloom *bf1, const bloom *bf2, bloom *bf);
 int bloom_and(bloom *bf1, const bloom *bf2);
 int bloom_and(const bloom *bf1, const bloom *bf2, bloom *bf);
 
-bitvector::size_type bloom_ones(const bloom *bf);
-
-int bloom_query(const bloom *bf, const uchar *gstr, int dir);
 
 void read_ID_to_taxon_map(const std::string & ID_to_taxon_map_filename);
 

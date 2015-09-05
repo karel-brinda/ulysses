@@ -1,5 +1,8 @@
 ulysses
 
+ulysses.build/
+ulysses.xcodeproj/
+
 # CMake
 CMakeCache.txt
 CMakeFiles

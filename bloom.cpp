@@ -68,23 +68,23 @@ bloom::~bloom(){
 }
 
 
-int bloom_create(bloom *bf, const char *fn, int both_directions){
+int bloom::create(const char *fasta_fn,int both_directions){
     DF1;
     
     gzFile fp;
     kseq_t *seq;
     int l;
            
-    int span = bf->seed.span;
+    int span = this->seed.span;
     assert(span>0);
-    int weight = bf->seed.weight;
-    unsigned int nh = bf->nh;
+    int weight = this->seed.weight;
+    unsigned int nh = this->nh;
     unsigned int bytes_kmer=compressed_kmer_size(weight);
     
     uchar * compr_kmer = new uchar[bytes_kmer];
     uint64_t * hashes1 = new uint64_t[nh+1];
     
-    fp = gzopen(fn, "r");
+    fp = gzopen(fasta_fn, "r");
     assert(fp != Z_NULL);
     seq = kseq_init(fp);
     
@@ -97,14 +97,14 @@ int bloom_create(bloom *bf, const char *fn, int both_directions){
         for (int i=0;i<l-span+1;i++){
             for(int direction=0;direction<=both_directions;direction++){
                 
-                if(compress_kmer(&dna[i],&bf->seed,bytes_kmer,compr_kmer,direction)!=0){
+                if(compress_kmer(&dna[i],&(this->seed),bytes_kmer,compr_kmer,direction)!=0){
                     continue;
                 }
                 
                 compute_hashes(compr_kmer, bytes_kmer, hashes1, nh);
                 
                 for(unsigned int j=0;j<nh;j++){                    
-                    bf->array.set(hashes1[j] % bf->array.size(),true);
+                    this->array.set(hashes1[j] % this->array.size(),true);
                 }
                 
             }
@@ -123,67 +123,67 @@ int bloom_create(bloom *bf, const char *fn, int both_directions){
     return 0;
 }
 
-void bloom_print(const bloom *bf, int verbose){
+void bloom::print(int verbose) const {
     DF1;
 
-    bitvector::size_type ones = bf->array.count();
+    bitvector::size_type ones = this->array.count();
     printf("Bloom:\n");
     if(verbose){    
-        for(bitvector::size_type i=0;i<bf->array.size();i++){            
-            printf("%d",(int)bf->array.test(i));
+        for(bitvector::size_type i=0;i<this->array.size();i++){
+            printf("%d",(int)this->array.test(i));
         }
     }
     printf("\n");
     printf("Ones: %lu\n",ones);
-    printf("Density: %f\n",1.0*ones/bf->array.size());
+    printf("Density: %f\n",1.0*ones/this->array.size());
 
     DF2;
 }
 
 
-int bloom_save(const bloom *bf, const char * filename){
+int bloom::save(const char * filename) const {
     DF1;
     // make an archive
     std::ofstream ofs(filename);
     boost::archive::binary_oarchive oa(ofs);
-    oa << (*bf);
+    oa << *this;
     DF2;
     return 0;
 }
 
-int bloom_load(bloom *bf, const char * filename){
+int bloom::load(const char * filename){
     DF1;
     // open the archive
     std::ifstream ifs(filename);
     boost::archive::binary_iarchive ia(ifs);
     // restore from the archive
-    ia >> (*bf);
+    ia >> (*this);
     DF2;
     return 0;
 }
 
 
-int bloom_shrink(bloom *bf, long factor) {
+int bloom::shrink(long factor) {
     DF1;    
-    assert(bf->array.size()%(factor*8)==0);  //maybe drop requirement to be exact in bytes?
-    bitvector::size_type new_as_b=bf->array.size()/factor;
+    assert(this->array.size()%(factor*8)==0);  //maybe drop requirement to be exact in bytes?
+    bitvector::size_type new_as_b=this->array.size()/factor;
     bitvector bf_copy;
     bitvector::size_type shift=new_as_b;    
     while(factor>1){
         if (factor%2==1){                        
             factor-=1;
-            bf_copy = bf->array;
+            bf_copy = this->array;
             bf_copy>>=shift*(factor);
             bf_copy.resize(shift*(factor));
-            bf->array.resize(shift*(factor));
-            bf->array|=bf_copy;            
+            this->array.resize(shift*(factor));
+            this->array|=bf_copy;            
         }
         factor/=2;
-        bf_copy = bf->array;
+        bf_copy = this->array;
         bf_copy>>=shift*(factor);
         bf_copy.resize(shift*(factor));
-        bf->array.resize(shift*(factor));
-        bf->array|=bf_copy;                
+        this->array.resize(shift*(factor));
+        this->array|=bf_copy;                
     }    
     DF2;
     return 0;
@@ -273,34 +273,34 @@ int bloom_xor(const bloom *bf1, const bloom *bf2, bloom *bf){
 }
 
 
-bitvector::size_type bloom_ones(const bloom *bf){
+bitvector::size_type bloom::ones() const {
     DF1;
     
-    bitvector::size_type ones = bf->array.count();
+    bitvector::size_type ones = this->array.count();
     
     DF2;
     return ones;
 }
 
-int bloom_query(const bloom *bf, const uchar *gstr, int direction){
+int bloom::query(const uchar *gstr, int direction) const {
     //DF1;
     
-    int span = bf->seed.span;
+    int span = this->seed.span;
     assert(span>0);
-    int weight = bf->seed.weight;
-    coor nh = bf->nh;
+    int weight = this->seed.weight;
+    coor nh = this->nh;
     unsigned int bytes_kmer=compressed_kmer_size(weight);
     
     uchar * compr_kmer = new uchar[bytes_kmer];
     uint64_t * hashes1 = new uint64_t[nh+1];
             
-    if(compress_kmer(gstr,&bf->seed,bytes_kmer,compr_kmer,direction)!=0){
+    if(compress_kmer(gstr,&(this->seed),bytes_kmer,compr_kmer,direction)!=0){
         return -1;
     }        
     compute_hashes(compr_kmer, bytes_kmer, hashes1, nh);
     
     for(int j=0;j<nh;j++){            
-    if (!bf->array.test(hashes1[j] % bf->array.size())){
+    if (!this->array.test(hashes1[j] % this->array.size())){
             return 0;
         }
     }

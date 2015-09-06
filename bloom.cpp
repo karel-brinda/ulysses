@@ -197,6 +197,7 @@ int Bloom::shrink(long factor) {
 }
 
 
+/*
 int bloom_or(Bloom *bf1, const Bloom *bf2){
     DF1;
     
@@ -223,7 +224,6 @@ int bloom_or(const Bloom *bf1, const Bloom *bf2, Bloom *bf){
     DF2;
     return 0;
 }
-
 
 
 int bloom_and(Bloom *bf1, const Bloom *bf2){
@@ -278,7 +278,7 @@ int bloom_xor(const Bloom *bf1, const Bloom *bf2, Bloom *bf){
     DF2;
     return 0;
 }
-
+*/
 
 bitvector::size_type Bloom::ones() const {
     DF1;
@@ -319,7 +319,78 @@ int Bloom::query(const uchar *gstr, int direction) const {
     return 1;
 }
 
+Bloom& Bloom::operator=(const Bloom &rhs){
+    DF1;
 
+    //fix: resize if needed
+    assert(rhs.array.size()==this->array.size());
+    this->nh=rhs.nh;
+    this->array=rhs.array;
+
+    DF2;
+
+    return *this;
+}
+
+
+Bloom& Bloom::operator^=(Bloom const &rhs) {
+    DF1;
+    
+    assert(rhs.array.size()==this->array.size());
+    this->array^=rhs.array;      
+    
+    DF2;
+
+    return *this;
+}
+
+Bloom& Bloom::operator|=(Bloom const &rhs) {
+    DF1;
+    
+    assert(rhs.array.size()==this->array.size());
+    this->array|=rhs.array;      
+    
+    DF2;
+
+    return *this;
+}
+
+Bloom& Bloom::operator&=(Bloom const &rhs) {
+    DF1;
+    
+    assert(rhs.array.size()==this->array.size());
+    this->array&=rhs.array;      
+    
+    DF2;
+
+    return *this;
+}
+
+const Bloom Bloom::operator&(const Bloom &other) const {
+    Bloom result = *this;
+    result &= other;
+    return result;
+}
+
+const Bloom Bloom::operator|(const Bloom &other) const {
+    Bloom result = *this;
+    result |= other;
+    return result;
+}
+
+const Bloom Bloom::operator^(const Bloom &other) const {
+    Bloom result = *this;
+    result ^= other;
+    return result;
+}
+
+bool Bloom::operator==(const Bloom &other) const {
+    return this->array == other.array;
+}
+
+bool Bloom::operator!=(const Bloom &other) const {
+    return !(*this == other);
+}
 
 void read_ID_to_taxon_map(const string & ID_to_taxon_map_filename) {
   ifstream map_file(ID_to_taxon_map_filename.c_str());

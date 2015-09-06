@@ -355,13 +355,13 @@ int main_bitwise(int argc,char** argv){
         bf2.load(buf_bfs[i]);
         switch (buf_ops[i]) {
             case 'a':
-                bloom_and(&bf,&bf2);
+                bf &= bf2;
                 break;
             case 'o':
-                bloom_or(&bf,&bf2);
+                bf |= bf2;
                 break;
             case 'x':
-                bloom_xor(&bf,&bf2);
+                bf ^= bf2;
                 break;
             default:
                 return 1;
@@ -511,19 +511,19 @@ int main_symmdiffmat(int argc,char** argv){
     
     int n=argc-optind;
     
-    std::vector<Bloom> bf;
+    std::vector<Bloom> bfs_vec;
     std::vector<double> s_est;    
     std::vector< std::vector<double> > sdiff( n, std::vector<double>(n) ); 
     
-    bf.resize(n);
+    bfs_vec.resize(n);
     s_est.resize(n);
     double dens;
     for(int i=0;i<n;i++){
-        bf[i].load(argv[optind+i]);                    
-        estimate_bloom_size(bf[i].array.size(),bf[i].ones(),bf[i].nh,dens,s_est[i]); 
+        bfs_vec[i].load(argv[optind+i]);                    
+        estimate_bloom_size(bfs_vec[i].array.size(),bfs_vec[i].ones(),bfs_vec[i].nh,dens,s_est[i]); 
     }
     
-    Bloom bf_tmp(0,bf[0].nh,NULL);
+    Bloom bf_tmp(0,bfs_vec[0].nh,NULL);
 
     for(int i=0;i<n;i++){
         for(int j=0;j<=i;j++){
@@ -531,7 +531,7 @@ int main_symmdiffmat(int argc,char** argv){
                 sdiff[i][i]=0.;
                 continue;
             }            
-            bloom_or(&bf[i],&bf[j],&bf_tmp);            
+            bf_tmp=bfs_vec[i] | bfs_vec[j];
             double dens;
             double est;
             estimate_bloom_size(bf_tmp.array.size(),bf_tmp.ones(),bf_tmp.nh,dens,est); 
@@ -570,16 +570,16 @@ int main_hamming(int argc,char** argv){
     }
     
     int n=argc-optind;
-    std::vector<Bloom> bf;
+    std::vector<Bloom> bfs_vec;
     std::vector< std::vector<int> > hamming( n, std::vector<int>(n) ); 
     
-    bf.resize(n);
+    bfs_vec.resize(n);
     for(int i=0;i<n;i++){
         //bf[i].init(0,0,NULL);
-        bf[i].load(argv[optind+i]);
+        bfs_vec[i].load(argv[optind+i]);
     }
     
-    Bloom bf_tmp(0,bf[0].nh,NULL);
+    Bloom bf_tmp(0,bfs_vec[0].nh,NULL);
 
     for(int i=0;i<n;i++){
         for(int j=0;j<=i;j++){
@@ -587,7 +587,7 @@ int main_hamming(int argc,char** argv){
                 hamming[i][i]=0;
                 continue;
             }
-            bloom_xor(&bf[i],&bf[j],&bf_tmp);
+            bf_tmp=bfs_vec[i]^bfs_vec[j];
             hamming[i][j]=hamming[j][i]=bf_tmp.ones();
         }
     }

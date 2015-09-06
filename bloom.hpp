@@ -46,8 +46,7 @@ public:
     Bloom();
     Bloom(const Bloom &bf);
     Bloom(coor as_b, unsigned int nh, const char *seedstr);
-    ~Bloom();    
-
+    ~Bloom();
 
     void init(coor as_b, unsigned int nh, const char *seedstr);
 
@@ -58,6 +57,21 @@ public:
     int shrink(long factor);
     int query(const uchar *gstr, int dir) const;
     bitvector::size_type ones() const;
+
+    Bloom& operator=(const Bloom &rhs);
+
+    Bloom& operator^=(Bloom const &rhs);
+    Bloom& operator&=(Bloom const &rhs);
+    Bloom& operator|=(Bloom const &rhs);
+
+    const Bloom operator^(const Bloom &other) const;
+    const Bloom operator&(const Bloom &other) const;
+    const Bloom operator|(const Bloom &other) const;
+
+    bool operator==(const Bloom &other) const;
+    bool operator!=(const Bloom &other) const;
+
+    //const Bloom operator!() const;
 
     uint32_t program_version_tag;
     uint32_t nh;
@@ -87,14 +101,15 @@ private:
 
 //int bloom_free(bloom *bf);
 
-int bloom_or(Bloom *bf1, const Bloom *bf2);
-int bloom_or(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
 
-int bloom_xor(Bloom *bf1, const Bloom *bf2);
-int bloom_xor(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
+//int bloom_or(Bloom *bf1, const Bloom *bf2);
+//int bloom_or(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
 
-int bloom_and(Bloom *bf1, const Bloom *bf2);
-int bloom_and(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
+//int bloom_xor(Bloom *bf1, const Bloom *bf2);
+//int bloom_xor(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
+
+//int bloom_and(Bloom *bf1, const Bloom *bf2);
+//int bloom_and(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
 
 
 void read_ID_to_taxon_map(const std::string & ID_to_taxon_map_filename);

@@ -9,12 +9,20 @@
 #include "seed.hpp"
 
 Seed::Seed(const Seed &seed)
-    :weight(seed.weight),span(seed.span)
 {
-    strcpy(this->seedstr,seed.seedstr);
+    *this=seed;
+}
 
-    memcpy(&this->shape[0], seed.shape[0], MAX_SEED_SPAN);
-    memcpy(&this->shape[1], seed.shape[1], MAX_SEED_SPAN);
+Seed& Seed::operator=(const Seed &rhs){
+    this->weight=rhs.weight;
+    this->span=rhs.span;
+
+    strcpy(this->seedstr,rhs.seedstr);
+
+    memcpy(&(this->shape[0]), rhs.shape[0], MAX_SEED_SPAN);
+    memcpy(&(this->shape[1]), rhs.shape[1], MAX_SEED_SPAN);    
+
+    return *this;
 }
 
 

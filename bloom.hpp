@@ -97,21 +97,6 @@ private:
     BOOST_SERIALIZATION_SPLIT_MEMBER()    
 };
 
-//int bloom_init(bloom *bf, coor as, int nh, const char *seedstr);
-
-//int bloom_free(bloom *bf);
-
-
-//int bloom_or(Bloom *bf1, const Bloom *bf2);
-//int bloom_or(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
-
-//int bloom_xor(Bloom *bf1, const Bloom *bf2);
-//int bloom_xor(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
-
-//int bloom_and(Bloom *bf1, const Bloom *bf2);
-//int bloom_and(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
-
-
 void read_ID_to_taxon_map(const std::string & ID_to_taxon_map_filename);
 
 std::map<std::string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, const Bloom * exclude_bf, coor as_b, unsigned int nh, const char *seedstr, const char *fn, int both_directions);

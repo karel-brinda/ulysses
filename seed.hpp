@@ -22,6 +22,8 @@ public:
     Seed(const char *seedstr);
     Seed(const Seed &seed);
 
+    Seed& operator=(const Seed &rhs);
+
     char seedstr[MAX_SEED_SPAN];
     int weight;
     int span;

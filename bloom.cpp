@@ -196,90 +196,6 @@ int Bloom::shrink(long factor) {
     return 0;
 }
 
-
-/*
-int bloom_or(Bloom *bf1, const Bloom *bf2){
-    DF1;
-    
-    assert(bf1->array.size()==bf2->array.size());
-    
-    bf1->array|=bf2->array;      
-    
-    DF2;
-    return 0;
-}
-
-
-int bloom_or(const Bloom *bf1, const Bloom *bf2, Bloom *bf){
-    DF1;
-    
-    assert(bf1->array.size()==bf2->array.size());
-    
-    bf->nh=bf1->nh;
-    bf->seed=bf1->seed;
-    
-    bf->array=bf1->array;
-    bf->array|=bf2->array;    
-        
-    DF2;
-    return 0;
-}
-
-
-int bloom_and(Bloom *bf1, const Bloom *bf2){
-    DF1;
-    
-    assert(bf1->array.size()==bf2->array.size());
-    
-    bf1->array&=bf2->array;      
-    
-    DF2;
-    return 0;
-}
-
-int bloom_and(const Bloom *bf1, const Bloom *bf2, Bloom *bf){
-    DF1;
-    
-    assert(bf1->array.size()==bf2->array.size());
-    
-    bf->nh=bf1->nh;
-    bf->seed=bf1->seed;
-    
-    bf->array=bf1->array;
-    bf->array&=bf2->array;    
-        
-    DF2;
-    return 0;
-}
-
-
-int bloom_xor(Bloom *bf1, const Bloom *bf2){
-    DF1;
-    
-    assert(bf1->array.size()==bf2->array.size());
-    
-    bf1->array^=bf2->array;      
-    
-    DF2;
-    return 0;
-}
-
-int bloom_xor(const Bloom *bf1, const Bloom *bf2, Bloom *bf){
-    DF1;
-    
-    assert(bf1->array.size()==bf2->array.size());
-    
-    bf->nh=bf1->nh;
-    bf->seed=bf1->seed;
-    
-    bf->array=bf1->array;
-    bf->array^=bf2->array;      
-        
-    DF2;
-    return 0;
-}
-*/
-
 bitvector::size_type Bloom::ones() const {
     DF1;
     
@@ -322,9 +238,12 @@ int Bloom::query(const uchar *gstr, int direction) const {
 Bloom& Bloom::operator=(const Bloom &rhs){
     DF1;
 
-    //fix: resize if needed
-    assert(rhs.array.size()==this->array.size());
+    if(rhs.array.size()!=this->array.size()){
+        this->array.resize(rhs.array.size());
+    }
+
     this->nh=rhs.nh;
+    this->seed=rhs.seed;
     this->array=rhs.array;
 
     DF2;

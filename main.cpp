@@ -77,7 +77,7 @@ void estimate_bloom_size(bitvector::size_type size, bitvector::size_type ones, u
 }
 
 
-void compute_print_bloom_stats(const bloom & bf){
+void compute_print_bloom_stats(const Bloom & bf){
     bitvector::size_type ones=bf.ones();
     double dens;
     double est;
@@ -107,7 +107,7 @@ int main_stats(int argc,char** argv){
         return 1;
     }
 
-    bloom bf(0,0,NULL);
+    Bloom bf(0,0,NULL);
     bf.load(argv[1]);
     
     compute_print_bloom_stats(bf);
@@ -166,7 +166,7 @@ int main_create(int argc,char** argv){
     char *fa_fn=argv[optind];
     char *bf_fn=argv[optind+1];
 
-    bloom bf(as_B*8,nh,seedstr);
+    Bloom bf(as_B*8,nh,seedstr);
     bf.create(fa_fn,r);
     bf.save(bf_fn);
     return 0;
@@ -245,23 +245,23 @@ int main_create_many(int argc,char** argv){
     read_ID_to_taxon_map(ID_to_taxon_map_filename);
     fprintf(stderr, "DONE.\n");
     
-    bloom initial_bf(0,0,nullptr);
+    Bloom initial_bf(0,0,nullptr);
     if (initial_bloom_filename.size()>0){
         initial_bf.load(initial_bloom_filename.c_str());
         assert((initial_bf.nh==(bitvector::size_type)nh)&&(initial_bf.array.size()==(bitvector::size_type)(as_B*8)));
     }
     
-    bloom exclude_bf(0,0,nullptr);
+    Bloom exclude_bf(0,0,nullptr);
     if (exclude_bloom_filename.size()>0){
         exclude_bf.load(exclude_bloom_filename.c_str());
     }
-    std::map<std::string,bloom> * taxon_bloom_map = bloom_create_many_blooms(
+    std::map<std::string,Bloom> * taxon_bloom_map = bloom_create_many_blooms(
         initial_bloom_filename.size()>0?&initial_bf:nullptr,       
         exclude_bloom_filename.size()>0?&exclude_bf:nullptr,
                              as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r);
     
     //save all of them to directory
-    auto map_fun = [=](const std::pair<std::string,bloom>& p) {  
+    auto map_fun = [=](const std::pair<std::string,Bloom>& p) {  
                     std::string fname = std::string(bf_fn)+"/"
                                       +p.first
                                       +std::string("_a")+std::to_string(as_B)
@@ -347,11 +347,11 @@ int main_bitwise(int argc,char** argv){
         return 1;
     }
 
-    bloom bf(0,0,NULL);
+    Bloom bf(0,0,NULL);
     bf.load(argv[optind]);
     
     for(int i=0;i<ops;i++){
-        bloom bf2(0,0,NULL);
+        Bloom bf2(0,0,NULL);
         bf2.load(buf_bfs[i]);
         switch (buf_ops[i]) {
             case 'a':
@@ -416,7 +416,7 @@ int main_dump(int argc,char** argv){
         return 1;
     }
 
-    bloom bf(0,0,NULL);
+    Bloom bf(0,0,NULL);
     bf.load(argv[optind]);
 
     if(mode==0){
@@ -482,7 +482,7 @@ int main_shrink(int argc,char** argv){
         return 1;
     }
     
-    bloom bf(0,0,NULL);
+    Bloom bf(0,0,NULL);
     bf.load(argv[optind]);
     bf.shrink(factor);
     bf.save(argv[optind+1]);
@@ -511,7 +511,7 @@ int main_symmdiffmat(int argc,char** argv){
     
     int n=argc-optind;
     
-    std::vector<bloom> bf;
+    std::vector<Bloom> bf;
     std::vector<double> s_est;    
     std::vector< std::vector<double> > sdiff( n, std::vector<double>(n) ); 
     
@@ -523,7 +523,7 @@ int main_symmdiffmat(int argc,char** argv){
         estimate_bloom_size(bf[i].array.size(),bf[i].ones(),bf[i].nh,dens,s_est[i]); 
     }
     
-    bloom bf_tmp(0,bf[0].nh,NULL);
+    Bloom bf_tmp(0,bf[0].nh,NULL);
 
     for(int i=0;i<n;i++){
         for(int j=0;j<=i;j++){
@@ -570,7 +570,7 @@ int main_hamming(int argc,char** argv){
     }
     
     int n=argc-optind;
-    std::vector<bloom> bf;
+    std::vector<Bloom> bf;
     std::vector< std::vector<int> > hamming( n, std::vector<int>(n) ); 
     
     bf.resize(n);
@@ -579,7 +579,7 @@ int main_hamming(int argc,char** argv){
         bf[i].load(argv[optind+i]);
     }
     
-    bloom bf_tmp(0,bf[0].nh,NULL);
+    Bloom bf_tmp(0,bf[0].nh,NULL);
 
     for(int i=0;i<n;i++){
         for(int j=0;j<=i;j++){
@@ -635,7 +635,7 @@ int main_query(int argc,char** argv){
         return 1;
     }
     
-    bloom bf(0,0,NULL);
+    Bloom bf(0,0,NULL);
     bf.load(argv[optind]);
     
     gzFile fp;

@@ -17,10 +17,10 @@
 
 #define MAX_SEED_SPAN 200
 
-class seed_t{
+class Seed{
 public:
-    seed_t(const char *seedstr);
-    seed_t(const seed_t &seed);
+    Seed(const char *seedstr);
+    Seed(const Seed &seed);
 
     char seedstr[MAX_SEED_SPAN];
     int weight;
@@ -34,8 +34,5 @@ private:
         ar & seedstr & weight & span & shape;
     }
 };
-
-
-//int seed_init(seed_t *seed, const char *seedstr);
 
 #endif

@@ -41,12 +41,12 @@
 
 typedef boost::dynamic_bitset<uint64_t> bitvector;
 
-class bloom {
+class Bloom {
 public:
-    bloom();
-    bloom(const bloom &bf);
-    bloom(coor as_b, unsigned int nh, const char *seedstr);
-    ~bloom();    
+    Bloom();
+    Bloom(const Bloom &bf);
+    Bloom(coor as_b, unsigned int nh, const char *seedstr);
+    ~Bloom();    
 
 
     void init(coor as_b, unsigned int nh, const char *seedstr);
@@ -62,7 +62,7 @@ public:
     uint32_t program_version_tag;
     uint32_t nh;
     bitvector array;
-    seed_t seed;
+    Seed seed;
 
 private:
     friend class boost::serialization::access;
@@ -87,18 +87,18 @@ private:
 
 //int bloom_free(bloom *bf);
 
-int bloom_or(bloom *bf1, const bloom *bf2);
-int bloom_or(const bloom *bf1, const bloom *bf2, bloom *bf);
+int bloom_or(Bloom *bf1, const Bloom *bf2);
+int bloom_or(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
 
-int bloom_xor(bloom *bf1, const bloom *bf2);
-int bloom_xor(const bloom *bf1, const bloom *bf2, bloom *bf);
+int bloom_xor(Bloom *bf1, const Bloom *bf2);
+int bloom_xor(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
 
-int bloom_and(bloom *bf1, const bloom *bf2);
-int bloom_and(const bloom *bf1, const bloom *bf2, bloom *bf);
+int bloom_and(Bloom *bf1, const Bloom *bf2);
+int bloom_and(const Bloom *bf1, const Bloom *bf2, Bloom *bf);
 
 
 void read_ID_to_taxon_map(const std::string & ID_to_taxon_map_filename);
 
-std::map<std::string,bloom> * bloom_create_many_blooms(const bloom * initial_bf, const bloom * exclude_bf, coor as_b, unsigned int nh, const char *seedstr, const char *fn, int both_directions);
+std::map<std::string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, const Bloom * exclude_bf, coor as_b, unsigned int nh, const char *seedstr, const char *fn, int both_directions);
 
 #endif

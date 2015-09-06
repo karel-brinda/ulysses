@@ -8,7 +8,7 @@
 
 #include "seed.hpp"
 
-seed_t::seed_t(const seed_t &seed)
+Seed::Seed(const Seed &seed)
     :weight(seed.weight),span(seed.span)
 {
     strcpy(this->seedstr,seed.seedstr);
@@ -18,24 +18,23 @@ seed_t::seed_t(const seed_t &seed)
 }
 
 
-seed_t::seed_t(const char *seedstr) {
-    seed_t * seed = this;
+Seed::Seed(const char *seedstr) {
     
     if(seedstr==NULL){
-        seed->span=0;
-        seed->weight=0;
+        this->span=0;
+        this->weight=0;
         return ;
     }
     
     for(int i=0;i<MAX_SEED_SPAN;i++){
-        seed->seedstr[i]=0xa;
-        seed->shape[0][i]=0xa;
-        seed->shape[1][i]=0xa;
+        this->seedstr[i]=0xa;
+        this->shape[0][i]=0xa;
+        this->shape[1][i]=0xa;
     }
         
     int span=strlen(seedstr);
     assert(span<MAX_SEED_SPAN);
-    strcpy(seed->seedstr,seedstr);
+    strcpy(this->seedstr,seedstr);
     
     int w=0;
     for(int i=0;i<span;i++){
@@ -45,15 +44,15 @@ seed_t::seed_t(const char *seedstr) {
         }
     }
 
-    seed->span=span;
-    seed->weight=w;
+    this->span=span;
+    this->weight=w;
 
     int v=0;
     for(int i=0;i<span;i++)
     {
         if (seedstr[i]=='#'){
-            seed->shape[0][v]=i;
-            seed->shape[1][v]=span-i-1;
+            this->shape[0][v]=i;
+            this->shape[1][v]=span-i-1;
             v++;
         }
     }

@@ -30,25 +30,25 @@ boost::regex re_illegal_newick("["+_ILLEGAL_NEWICK_CHARS+"]");
 
 KSEQ_INIT(gzFile, gzread)
 
-bloom::bloom():
+Bloom::Bloom():
     program_version_tag(PROGRAM_VERSION_TAG),nh(0),array(),seed(NULL)
 {}
 
-bloom::bloom(const bloom &bf):
+Bloom::Bloom(const Bloom &bf):
     program_version_tag(PROGRAM_VERSION_TAG),nh(bf.nh),array(bf.array),seed(bf.seed)
 {
 }
 
 
-bloom::bloom(coor as_b, unsigned int nh, const char *seedstr):program_version_tag(PROGRAM_VERSION_TAG),nh(0),array(),seed(seedstr) {
+Bloom::Bloom(coor as_b, unsigned int nh, const char *seedstr):program_version_tag(PROGRAM_VERSION_TAG),nh(0),array(),seed(seedstr) {
     this->init(as_b,nh,seedstr);
 }
 
-void bloom::init(coor as_b, unsigned int nh, const char *seedstr) {    
+void Bloom::init(coor as_b, unsigned int nh, const char *seedstr) {    
     DF1;
-    bloom *bf = this;
+    Bloom *bf = this;
     
-    seed = seed_t(seedstr);
+    seed = Seed(seedstr);
     
     bf->program_version_tag=PROGRAM_VERSION_TAG;
                 
@@ -69,13 +69,13 @@ void bloom::init(coor as_b, unsigned int nh, const char *seedstr) {
     DF2;    
 }
 
-bloom::~bloom(){
+Bloom::~Bloom(){
     //DF1;
     //DF2;    
 }
 
 
-int bloom::create(const char *fasta_fn,int both_directions){
+int Bloom::create(const char *fasta_fn,int both_directions){
     DF1;
     
     gzFile fp;
@@ -130,7 +130,7 @@ int bloom::create(const char *fasta_fn,int both_directions){
     return 0;
 }
 
-void bloom::print(int verbose) const {
+void Bloom::print(int verbose) const {
     DF1;
 
     bitvector::size_type ones = this->array.count();
@@ -148,7 +148,7 @@ void bloom::print(int verbose) const {
 }
 
 
-int bloom::save(const char * filename) const {
+int Bloom::save(const char * filename) const {
     DF1;
     // make an archive
     std::ofstream ofs(filename);
@@ -158,7 +158,7 @@ int bloom::save(const char * filename) const {
     return 0;
 }
 
-int bloom::load(const char * filename){
+int Bloom::load(const char * filename){
     DF1;
     // open the archive
     std::ifstream ifs(filename);
@@ -170,7 +170,7 @@ int bloom::load(const char * filename){
 }
 
 
-int bloom::shrink(long factor) {
+int Bloom::shrink(long factor) {
     DF1;    
     assert(this->array.size()%(factor*8)==0);  //maybe drop requirement to be exact in bytes?
     bitvector::size_type new_as_b=this->array.size()/factor;
@@ -197,7 +197,7 @@ int bloom::shrink(long factor) {
 }
 
 
-int bloom_or(bloom *bf1, const bloom *bf2){
+int bloom_or(Bloom *bf1, const Bloom *bf2){
     DF1;
     
     assert(bf1->array.size()==bf2->array.size());
@@ -209,7 +209,7 @@ int bloom_or(bloom *bf1, const bloom *bf2){
 }
 
 
-int bloom_or(const bloom *bf1, const bloom *bf2, bloom *bf){
+int bloom_or(const Bloom *bf1, const Bloom *bf2, Bloom *bf){
     DF1;
     
     assert(bf1->array.size()==bf2->array.size());
@@ -226,7 +226,7 @@ int bloom_or(const bloom *bf1, const bloom *bf2, bloom *bf){
 
 
 
-int bloom_and(bloom *bf1, const bloom *bf2){
+int bloom_and(Bloom *bf1, const Bloom *bf2){
     DF1;
     
     assert(bf1->array.size()==bf2->array.size());
@@ -237,7 +237,7 @@ int bloom_and(bloom *bf1, const bloom *bf2){
     return 0;
 }
 
-int bloom_and(const bloom *bf1, const bloom *bf2, bloom *bf){
+int bloom_and(const Bloom *bf1, const Bloom *bf2, Bloom *bf){
     DF1;
     
     assert(bf1->array.size()==bf2->array.size());
@@ -253,7 +253,7 @@ int bloom_and(const bloom *bf1, const bloom *bf2, bloom *bf){
 }
 
 
-int bloom_xor(bloom *bf1, const bloom *bf2){
+int bloom_xor(Bloom *bf1, const Bloom *bf2){
     DF1;
     
     assert(bf1->array.size()==bf2->array.size());
@@ -264,7 +264,7 @@ int bloom_xor(bloom *bf1, const bloom *bf2){
     return 0;
 }
 
-int bloom_xor(const bloom *bf1, const bloom *bf2, bloom *bf){
+int bloom_xor(const Bloom *bf1, const Bloom *bf2, Bloom *bf){
     DF1;
     
     assert(bf1->array.size()==bf2->array.size());
@@ -280,7 +280,7 @@ int bloom_xor(const bloom *bf1, const bloom *bf2, bloom *bf){
 }
 
 
-bitvector::size_type bloom::ones() const {
+bitvector::size_type Bloom::ones() const {
     DF1;
     
     bitvector::size_type ones = this->array.count();
@@ -289,7 +289,7 @@ bitvector::size_type bloom::ones() const {
     return ones;
 }
 
-int bloom::query(const uchar *gstr, int direction) const {
+int Bloom::query(const uchar *gstr, int direction) const {
     //DF1;
     
     int span = this->seed.span;
@@ -342,7 +342,7 @@ void read_ID_to_taxon_map(const string & ID_to_taxon_map_filename) {
 
 
 
-map<string,bloom> * bloom_create_many_blooms(const bloom * initial_bf, const bloom * exclude_bf,
+map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, const Bloom * exclude_bf,
                                              coor as_b, unsigned int nh, 
                                              const char *seedstr, const char *fn, int both_directions){
     DF1;
@@ -356,7 +356,7 @@ map<string,bloom> * bloom_create_many_blooms(const bloom * initial_bf, const blo
         min_nh=exclude_bf->nh<nh?exclude_bf->nh:nh;
     }
         
-    seed_t seed(seedstr);
+    Seed seed(seedstr);
     int span = seed.span;
     assert(span>0);    
     int weight = seed.weight;
@@ -367,7 +367,7 @@ map<string,bloom> * bloom_create_many_blooms(const bloom * initial_bf, const blo
     //string taxid;
     
     //Create taxon bloom filter map
-    map<string,bloom> * taxon_bloom_map = new map<string,bloom>();
+    map<string,Bloom> * taxon_bloom_map = new map<string,Bloom>();
     
     fp = gzopen(fn, "r");
     assert(fp != Z_NULL);
@@ -381,7 +381,7 @@ map<string,bloom> * bloom_create_many_blooms(const bloom * initial_bf, const blo
            string & taxid = ID_to_taxon_map.at(boost::regex_replace(std::string(seq->name.s),re_illegal_newick,_ILLEGAL_NEWICK_REPLACE));
            
             //Return already used bloom, or a fresh initialized to 0	            
-            bloom & bf = (*taxon_bloom_map)[taxid];	
+            Bloom & bf = (*taxon_bloom_map)[taxid];	
             
             if (bf.array.size()<=0)  {//This is a new bf, not initialized yet
                 if (initial_bf==nullptr)

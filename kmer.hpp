@@ -17,7 +17,7 @@
 
 unsigned int compressed_kmer_size(unsigned int length);
 
-int compress_kmer(const uchar *gstr,const seed_t *seed, unsigned int bytes, uchar *compr,int direction);
+int compress_kmer(const uchar *gstr,const Seed *seed, unsigned int bytes, uchar *compr,int direction);
 
 int decompress_kmer(const uchar *compr, uchar *gstr, unsigned int bytes);
 

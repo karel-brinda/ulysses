@@ -184,11 +184,12 @@ int main_create_many(int argc,char** argv){
     std::string Multi_fasta_filename = "/dev/fd/0"; //default use stdin
     std::string ID_to_taxon_map_filename;
     std::string exclude_bloom_filename;
+    std::string include_bloom_filename;
     std::string initial_bloom_filename;
     
     bool print_stats = false;
     
-    while ((c = getopt(argc, argv, "a:s:h:rF:m:e:t")) >= 0) {
+    while ((c = getopt(argc, argv, "a:s:h:rF:m:e:n:t")) >= 0) {
         switch (c) {
             case 'a':
                 as_B=atol(optarg);
@@ -214,6 +215,9 @@ int main_create_many(int argc,char** argv){
             case 'e':
                 exclude_bloom_filename = optarg;
                 break;
+            case 'n':
+                include_bloom_filename = optarg;
+                break;                
             case 't':
                 print_stats = true;
                 break;
@@ -234,6 +238,7 @@ int main_create_many(int argc,char** argv){
         fprintf(stderr, "         -r     include also reverse complements of kmers\n");
         fprintf(stderr, "         -t       print statistics of the final BF\n");
         fprintf(stderr, "         -e BLM exclude k-mers present in BLM bloom filter\n");
+        fprintf(stderr, "         -n BLM include only k-mers present in BLM bloom filter\n");
         fprintf(stderr, "\n");
         return 1;
     }
@@ -255,9 +260,14 @@ int main_create_many(int argc,char** argv){
     if (exclude_bloom_filename.size()>0){
         bloom_load(&exclude_bf,exclude_bloom_filename.c_str());
     }
+    bloom include_bf(0,0,nullptr);
+    if (include_bloom_filename.size()>0){
+        bloom_load(&include_bf,include_bloom_filename.c_str());
+    }
     std::map<std::string,bloom> * taxon_bloom_map = bloom_create_many_blooms(
         initial_bloom_filename.size()>0?&initial_bf:nullptr,       
         exclude_bloom_filename.size()>0?&exclude_bf:nullptr,
+        include_bloom_filename.size()>0?&include_bf:nullptr,
                              as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r);
     
     //save all of them to directory

@@ -172,6 +172,15 @@ int main_create(int argc,char** argv){
     return 0;
 }
 
+// Returns rounded up size of optimal bloom filter with k-hash functions and n elements
+bitvector::size_type get_size_in_bytes(bitvector::size_type k,bitvector::size_type n){
+    //k=m/n*ln2    
+    //ln(p) = - m/n *(ln2)^2 = -k*ln(2)
+    //p = 2^-k    
+    bitvector::size_type m = ceil((double)(n*k)/log(2.));
+    return (bitvector::size_type)pow(2.,ceil(log2(m)-3.));
+}
+
 
 int main_create_many(int argc,char** argv){
     int c;
@@ -188,8 +197,9 @@ int main_create_many(int argc,char** argv){
     std::string initial_bloom_filename;
     
     bool print_stats = false;
+    bool shrink = false;
     
-    while ((c = getopt(argc, argv, "a:s:h:rF:m:e:n:t")) >= 0) {
+    while ((c = getopt(argc, argv, "a:s:h:rF:m:e:n:tk")) >= 0) {
         switch (c) {
             case 'a':
                 as_B=atol(optarg);
@@ -221,6 +231,9 @@ int main_create_many(int argc,char** argv){
             case 't':
                 print_stats = true;
                 break;
+            case 'k':
+                shrink = true;
+                break;
             default:
                 return 1;
         }
@@ -239,6 +252,7 @@ int main_create_many(int argc,char** argv){
         fprintf(stderr, "         -t       print statistics of the final BF\n");
         fprintf(stderr, "         -e BLM exclude k-mers present in BLM bloom filter\n");
         fprintf(stderr, "         -n BLM include only k-mers present in BLM bloom filter\n");
+        fprintf(stderr, "         -k       shrink before saving to optimal size\n");
         fprintf(stderr, "\n");
         return 1;
     }
@@ -271,7 +285,7 @@ int main_create_many(int argc,char** argv){
                              as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r);
     
     //save all of them to directory
-    auto map_fun = [=](const std::pair<std::string,bloom>& p) {  
+    auto map_fun = [=]( std::pair<const std::string,bloom>& p) {  
                     std::string fname = std::string(bf_fn)+"/"
                                       +p.first
                                       +std::string("_a")+std::to_string(as_B)
@@ -280,6 +294,14 @@ int main_create_many(int argc,char** argv){
                                       +std::string("_r")+std::to_string(r)                                      
                                       +std::string(".bf");
                     fprintf(stderr, "Saving bloom filter to file %s\n",fname.c_str());
+                    if (shrink){
+                        double dens, est;        
+                        estimate_bloom_size(p.second.array.size(),bloom_ones(&p.second),p.second.nh,dens,est);
+                        est = est>MIN_BLOOM_CAPACITY?est:MIN_BLOOM_CAPACITY;
+                        bitvector::size_type new_size = get_size_in_bytes(p.second.nh,round(est));        
+                        //fprintf(stderr,"Shrinking to size:%ld\n",new_size);
+                        bloom_shrink(&p.second,(p.second.array.size()/8)/new_size);
+                    }
                     if (print_stats){
                         printf("filename\t%s\n",fname.c_str());
                         compute_print_bloom_stats(p.second);
@@ -295,14 +317,6 @@ int main_create_many(int argc,char** argv){
     return 0;
 }
 
-// Returns rounded up size of optimal bloom filter with k-hash functions and n elements
-bitvector::size_type get_size_in_bytes(bitvector::size_type k,bitvector::size_type n){
-    //k=m/n*ln2    
-    //ln(p) = - m/n *(ln2)^2 = -k*ln(2)
-    //p = 2^-k    
-    bitvector::size_type m = ceil((double)(n*k)/log(2.));
-    return (bitvector::size_type)pow(2.,ceil(log2(m)-3.));
-}
 
 int main_bitwise(int argc,char** argv){
     int c;
@@ -314,7 +328,7 @@ int main_bitwise(int argc,char** argv){
     bool print_stats = false;
     bool shrink = false;    
     
-    while ((c = getopt(argc, argv, "a:o:x:ts")) >= 0) {
+    while ((c = getopt(argc, argv, "a:o:x:tk")) >= 0) {
         switch (c) {
             case 'a':
                 buf_ops[ops]='a';
@@ -334,7 +348,7 @@ int main_bitwise(int argc,char** argv){
             case 't':
                 print_stats = true;
                 break;
-            case 's':
+            case 'k':
                 shrink = true;
                 break;
             default:
@@ -351,7 +365,7 @@ int main_bitwise(int argc,char** argv){
         fprintf(stderr, "         -o STR   bitwise OR of other BF\n");
         fprintf(stderr, "         -x STR   bitwise XOR of other BF\n");
         fprintf(stderr, "         -t       print statistics of the final BF\n");
-        fprintf(stderr, "         -s       shrink before saving to optimal size\n");
+        fprintf(stderr, "         -k       shrink before saving to optimal size\n");
         fprintf(stderr, "Use '-' as <out.bf> not to save the final BF.\n");
         fprintf(stderr, "\n");
         return 1;

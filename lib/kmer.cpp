@@ -6,16 +6,16 @@
 //
 //
 
-#include "kmer.hpp"
-#include "seed.hpp"
+#include "ulysses/kmer.hpp"
+#include "ulysses/seed.hpp"
 #include <math.h>
-#include "misc.hpp"
+#include "ulysses/misc.hpp"
 
 unsigned int compressed_kmer_size(unsigned int length){
     return (length +4 -1)/4;
 }
 
-int compress_kmer(const uchar *gstr,const seed_t *seed,unsigned int bytes, uchar *compr,int direction) {    
+int compress_kmer(const uchar *gstr,const Seed *seed, unsigned int bytes, uchar *compr,int direction){
     unsigned int p=0;
     
     for(unsigned int i=0;i<bytes;i++){

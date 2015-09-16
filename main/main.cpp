@@ -77,8 +77,8 @@ void estimate_bloom_size(bitvector::size_type size, bitvector::size_type ones, u
 }
 
 
-void compute_print_bloom_stats(const bloom & bf){
-    bitvector::size_type ones=bloom_ones(&bf);
+void compute_print_bloom_stats(const Bloom & bf){
+    bitvector::size_type ones=bf.ones();
     double dens;
     double est;
     
@@ -107,8 +107,8 @@ int main_stats(int argc,char** argv){
         return 1;
     }
 
-    bloom bf(0,0,NULL);
-    bloom_load(&bf,argv[1]);
+    Bloom bf(0,0,NULL);
+    bf.load(argv[1]);
     
     compute_print_bloom_stats(bf);
     
@@ -166,9 +166,9 @@ int main_create(int argc,char** argv){
     char *fa_fn=argv[optind];
     char *bf_fn=argv[optind+1];
 
-    bloom bf(as_B*8,nh,seedstr);
-    bloom_create(&bf,fa_fn,r);
-    bloom_save(&bf,bf_fn);    
+    Bloom bf(as_B*8,nh,seedstr);
+    bf.create(fa_fn,r);
+    bf.save(bf_fn);
     return 0;
 }
 
@@ -245,23 +245,23 @@ int main_create_many(int argc,char** argv){
     read_ID_to_taxon_map(ID_to_taxon_map_filename);
     fprintf(stderr, "DONE.\n");
     
-    bloom initial_bf(0,0,nullptr);
+    Bloom initial_bf(0,0,nullptr);
     if (initial_bloom_filename.size()>0){
-        bloom_load(&initial_bf,initial_bloom_filename.c_str());
+        initial_bf.load(initial_bloom_filename.c_str());
         assert((initial_bf.nh==(bitvector::size_type)nh)&&(initial_bf.array.size()==(bitvector::size_type)(as_B*8)));
     }
     
-    bloom exclude_bf(0,0,nullptr);
+    Bloom exclude_bf(0,0,nullptr);
     if (exclude_bloom_filename.size()>0){
-        bloom_load(&exclude_bf,exclude_bloom_filename.c_str());
+        exclude_bf.load(exclude_bloom_filename.c_str());
     }
-    std::map<std::string,bloom> * taxon_bloom_map = bloom_create_many_blooms(
+    std::map<std::string,Bloom> * taxon_bloom_map = bloom_create_many_blooms(
         initial_bloom_filename.size()>0?&initial_bf:nullptr,       
         exclude_bloom_filename.size()>0?&exclude_bf:nullptr,
                              as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r);
     
     //save all of them to directory
-    auto map_fun = [=](const std::pair<std::string,bloom>& p) {  
+    auto map_fun = [=](const std::pair<std::string,Bloom>& p) {  
                     std::string fname = std::string(bf_fn)+"/"
                                       +p.first
                                       +std::string("_a")+std::to_string(as_B)
@@ -274,7 +274,7 @@ int main_create_many(int argc,char** argv){
                         printf("filename\t%s\n",fname.c_str());
                         compute_print_bloom_stats(p.second);
                     }
-                    bloom_save(&p.second,fname.c_str()); 
+                    p.second.save(fname.c_str()); 
                    };
                    
     std::for_each(taxon_bloom_map->begin(), taxon_bloom_map->end(), map_fun);
@@ -347,21 +347,21 @@ int main_bitwise(int argc,char** argv){
         return 1;
     }
 
-    bloom bf(0,0,NULL);
-    bloom_load(&bf,argv[optind]);
+    Bloom bf(0,0,NULL);
+    bf.load(argv[optind]);
     
     for(int i=0;i<ops;i++){
-        bloom bf2(0,0,NULL);
-        bloom_load(&bf2,buf_bfs[i]);
+        Bloom bf2(0,0,NULL);
+        bf2.load(buf_bfs[i]);
         switch (buf_ops[i]) {
             case 'a':
-                bloom_and(&bf,&bf2);
+                bf &= bf2;
                 break;
             case 'o':
-                bloom_or(&bf,&bf2);
+                bf |= bf2;
                 break;
             case 'x':
-                bloom_xor(&bf,&bf2);
+                bf ^= bf2;
                 break;
             default:
                 return 1;
@@ -370,18 +370,18 @@ int main_bitwise(int argc,char** argv){
     
     if (shrink){
         double dens, est;        
-        estimate_bloom_size(bf.array.size(),bloom_ones(&bf),bf.nh,dens,est);
+        estimate_bloom_size(bf.array.size(),bf.ones(),bf.nh,dens,est);
         est = est>MIN_BLOOM_CAPACITY?est:MIN_BLOOM_CAPACITY;
         bitvector::size_type new_size = get_size_in_bytes(bf.nh,round(est));        
         //fprintf(stderr,"Shrinking to size:%ld\n",new_size);
-        bloom_shrink(&bf,(bf.array.size()/8)/new_size);
+        bf.shrink((bf.array.size()/8)/new_size);
     }
     
     if (print_stats)
         compute_print_bloom_stats(bf);
            
     if (strcmp(argv[optind+1], "-")!=0)    
-        bloom_save(&bf,argv[optind+1]);
+        bf.save(argv[optind+1]);
         
     return 0;
 }
@@ -416,8 +416,8 @@ int main_dump(int argc,char** argv){
         return 1;
     }
 
-    bloom bf(0,0,NULL);
-    bloom_load(&bf,argv[optind]);
+    Bloom bf(0,0,NULL);
+    bf.load(argv[optind]);
 
     if(mode==0){
         for(bitvector::size_type i=0;i<bf.array.size();i++){
@@ -482,10 +482,10 @@ int main_shrink(int argc,char** argv){
         return 1;
     }
     
-    bloom bf(0,0,NULL);
-    bloom_load(&bf,argv[optind]);
-    bloom_shrink(&bf,factor);
-    bloom_save(&bf,argv[optind+1]);
+    Bloom bf(0,0,NULL);
+    bf.load(argv[optind]);
+    bf.shrink(factor);
+    bf.save(argv[optind+1]);
         
     return 0;
 }
@@ -511,19 +511,19 @@ int main_symmdiffmat(int argc,char** argv){
     
     int n=argc-optind;
     
-    std::vector<bloom> bf;
+    std::vector<Bloom> bfs_vec;
     std::vector<double> s_est;    
     std::vector< std::vector<double> > sdiff( n, std::vector<double>(n) ); 
     
-    bf.resize(n);
+    bfs_vec.resize(n);
     s_est.resize(n);
     double dens;
     for(int i=0;i<n;i++){
-        bloom_load(&bf[i],argv[optind+i]);                    
-        estimate_bloom_size(bf[i].array.size(),bloom_ones(&bf[i]),bf[i].nh,dens,s_est[i]); 
+        bfs_vec[i].load(argv[optind+i]);                    
+        estimate_bloom_size(bfs_vec[i].array.size(),bfs_vec[i].ones(),bfs_vec[i].nh,dens,s_est[i]); 
     }
     
-    bloom bf_tmp(0,bf[0].nh,NULL);
+    Bloom bf_tmp(0,bfs_vec[0].nh,NULL);
 
     for(int i=0;i<n;i++){
         for(int j=0;j<=i;j++){
@@ -531,10 +531,10 @@ int main_symmdiffmat(int argc,char** argv){
                 sdiff[i][i]=0.;
                 continue;
             }            
-            bloom_or(&bf[i],&bf[j],&bf_tmp);            
+            bf_tmp=bfs_vec[i] | bfs_vec[j];
             double dens;
             double est;
-            estimate_bloom_size(bf_tmp.array.size(),bloom_ones(&bf_tmp),bf_tmp.nh,dens,est); 
+            estimate_bloom_size(bf_tmp.array.size(),bf_tmp.ones(),bf_tmp.nh,dens,est); 
             sdiff[i][j]=sdiff[j][i]= (est - s_est[i]) + (est - s_est[j]);
         }
     }
@@ -570,16 +570,16 @@ int main_hamming(int argc,char** argv){
     }
     
     int n=argc-optind;
-    std::vector<bloom> bf;
+    std::vector<Bloom> bfs_vec;
     std::vector< std::vector<int> > hamming( n, std::vector<int>(n) ); 
     
-    bf.resize(n);
+    bfs_vec.resize(n);
     for(int i=0;i<n;i++){
         //bf[i].init(0,0,NULL);
-        bloom_load(&bf[i],argv[optind+i]);
+        bfs_vec[i].load(argv[optind+i]);
     }
     
-    bloom bf_tmp(0,bf[0].nh,NULL);
+    Bloom bf_tmp(0,bfs_vec[0].nh,NULL);
 
     for(int i=0;i<n;i++){
         for(int j=0;j<=i;j++){
@@ -587,8 +587,8 @@ int main_hamming(int argc,char** argv){
                 hamming[i][i]=0;
                 continue;
             }
-            bloom_xor(&bf[i],&bf[j],&bf_tmp);
-            hamming[i][j]=hamming[j][i]=bloom_ones(&bf_tmp);
+            bf_tmp=bfs_vec[i]^bfs_vec[j];
+            hamming[i][j]=hamming[j][i]=bf_tmp.ones();
         }
     }
             
@@ -635,8 +635,8 @@ int main_query(int argc,char** argv){
         return 1;
     }
     
-    bloom bf(0,0,NULL);
-    bloom_load(&bf,argv[optind]);
+    Bloom bf(0,0,NULL);
+    bf.load(argv[optind]);
     
     gzFile fp;
     kseq_t *seq;
@@ -651,7 +651,7 @@ int main_query(int argc,char** argv){
         for (int dir=0;dir<=d;dir++){
             printf("%s\t%s\t",seq->name.s, dir ? "r" : "f");
             for (int i=0;i<l-bf.seed.span+1;i++){
-                int res=bloom_query(&bf, (uchar*)&(seq->seq.s[i]), dir);
+                int res=bf.query((uchar*)&(seq->seq.s[i]), dir);
                 if (res==1){
                     printf("1");
                 }

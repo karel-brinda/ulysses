@@ -14,10 +14,10 @@
 #include <stdio.h>
 #include <math.h>
 
-#include "bloom.hpp"
-#include "seed.hpp"
-#include "utils/MurmurHash3.hpp"
-#include "utils/kseq.h"
+#include "ulysses/bloom.hpp"
+#include "ulysses/seed.hpp"
+#include "MurmurHash3.hpp"
+#include "kseq.h"
 
 int main_create(int argc,char** argv);
 

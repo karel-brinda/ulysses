@@ -332,7 +332,9 @@ void read_ID_to_taxon_map(const string & ID_to_taxon_map_filename) {
 
 
 
-map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, const Bloom * exclude_bf,
+map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, 
+                                             const Bloom * exclude_bf,
+                                             const Bloom * include_bf,
                                              coor as_b, unsigned int nh, 
                                              const char *seedstr, const char *fn, int both_directions){
     DF1;
@@ -341,9 +343,12 @@ map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, const Blo
     kseq_t *seq;
     int l;
     
-    unsigned int min_nh=nh;
+    unsigned int min_nh=nh, min_inc_nh=nh;
     if (exclude_bf!=nullptr) {
         min_nh=exclude_bf->nh<nh?exclude_bf->nh:nh;
+    }
+    if (include_bf!=nullptr) {
+        min_inc_nh=include_bf->nh<nh?include_bf->nh:nh;
     }
         
     Seed seed(seedstr);
@@ -398,6 +403,13 @@ map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, const Blo
                          all_in&=exclude_bf->array.test(hashes1[j] % exclude_bf->array.size());
                        }
                        do_set&=!all_in;
+                    }
+                    if (include_bf!=nullptr) {
+                       bool all_in = true;                        
+                       for(unsigned int j=0;j<min_inc_nh;j++){                    
+                         all_in&=include_bf->array.test(hashes1[j] % include_bf->array.size());
+                       }
+                       do_set&=all_in;
                     }
                     if (do_set){
                       for(unsigned int j=0;j<nh;j++){                    

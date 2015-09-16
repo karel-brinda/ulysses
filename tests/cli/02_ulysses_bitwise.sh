@@ -11,4 +11,4 @@ ulysses bitwise -t -o ../_output/1.bf ../_output/2.bf ../_output/or.bf > ../_out
 
 ulysses bitwise -x ../_output/1.bf ../_output/2.bf ../_output/xor.bf
 
-ulysses bitwise -s -t -a ../_output/1.bf ../_output/2.bf ../_output/and_shrink.bf > ../_output/and_stats.txt
+ulysses bitwise -k -t -a ../_output/1.bf ../_output/2.bf ../_output/and_shrink.bf > ../_output/and_stats.txt

@@ -100,6 +100,6 @@ private:
 
 void read_ID_to_taxon_map(const std::string & ID_to_taxon_map_filename);
 
-std::map<std::string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, const Bloom * exclude_bf, coor as_b, unsigned int nh, const char *seedstr, const char *fn, int both_directions);
+std::map<std::string,Bloom>* bloom_create_many_blooms(const Bloom * initial_bf, const Bloom * exclude_bf,const Bloom * include_bf, coor as_b, unsigned int nh, const char *seedstr, const char *fn, int both_directions);
 
 #endif

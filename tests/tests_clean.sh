@@ -2,5 +2,5 @@
 
 set -e
 
-git clean -fdx
+git clean -fdx ./
 

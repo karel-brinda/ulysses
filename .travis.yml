@@ -22,5 +22,5 @@ before_script:
 - cmake . && make -j
 script:
 #- cd tests && ./tests_install_bats.sh
-- cd tests && ./tests_run_unittests.sh
-- cd tests && bats ${CI:+--tap} ./tests_run_cli.sh
+- (cd tests && ./tests_run_unittests.sh)
+- (cd tests && bats ${CI:+--tap} ./tests_run_cli.sh)

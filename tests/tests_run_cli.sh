@@ -2,6 +2,10 @@
 
 mkdir -p _output
 
+#cd "$(dirname "$0")"
+BIN=$(cd ../bin; pwd)
+export PATH=$PATH:$BIN
+
 @test "CLI: ulysses create" {
 	./cli/01*.sh
 }

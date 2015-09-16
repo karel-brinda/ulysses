@@ -16,8 +16,8 @@ set(PROJECT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 #add_definitions(-O3 -W -Wall -Wextra -pedantic -std=c++11 -g -pg)
 SET(GCC_COVERAGE_COMPILE_FLAGS "-O3 -W -Wall -Wextra -pedantic -std=c++11") # -g -pg")
 SET(GCC_COVERAGE_LINK_FLAGS    "") #"-pg")
-SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
-SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}" )
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
+SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
 
 #################
 
@@ -36,7 +36,7 @@ set(Boost_USE_STATIC_RUNTIME    OFF)
 
 find_package(Boost COMPONENTS regex serialization  REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
-link_directories(${Boost_LIBRARY_DIR})
+#link_directories(${Boost_LIBRARY_DIR})
 
 #################
 
@@ -57,8 +57,8 @@ add_executable(ulysses
 target_link_libraries(ulysses
         m
         ${ZLIB_LIBRARIES}
-        ${Boost_LIBRARIES}
         ulysseslib
+        ${Boost_LIBRARIES}
     )
 
 #################

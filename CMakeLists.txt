@@ -36,7 +36,7 @@ set(Boost_USE_STATIC_RUNTIME    OFF)
 
 find_package(Boost COMPONENTS regex serialization  REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
-link_directories(${Boost_LIBRARY_DIR})
+#link_directories(${Boost_LIBRARY_DIR})
 
 #################
 
@@ -57,10 +57,10 @@ add_executable(ulysses
 target_link_libraries(ulysses
         m
         ${ZLIB_LIBRARIES}
-        ${Boost_LIBRARIES}
         ulysseslib
+        ${Boost_LIBRARIES}
     )
 
 #################
 
-add_subdirectory(tests)
+#add_subdirectory(tests)

@@ -1,4 +1,6 @@
-#include<stdio.h>
+#include <stdio.h>
+#include "ulysses/bloom.hpp"
+
 #include "gtest/gtest.h"
 
     namespace {
@@ -36,6 +38,7 @@
         // Tests that the Foo::Bar() method does Abc.
         TEST_F(FooTest, MethodBarDoesAbc) {
             EXPECT_EQ(0, 0);
+            Bloom bf;
         }
         
         // Tests that Foo does Xyz.

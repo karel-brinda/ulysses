@@ -1,18 +1,16 @@
-cmake_minimum_required(VERSION 2.6)
-project(basic_test)
+cmake_minimum_required(VERSION 2.8)
+#project(ulysses_tests)
 
 ################################
 # GTest
 ################################
+
 add_subdirectory (gtest/googletest)
-enable_testing()
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 ################################
 # Unit Tests
 ################################
-# Add test cpp file
-add_executable( runUnitTests test.cpp )
-# Link test executable against gtest & gtest_main
-target_link_libraries(runUnitTests gtest gtest_main ulysseslib)
-add_test( runUnitTests runUnitTests )
+
+add_executable(ulysses_tests ulysses_tests.cpp )
+target_link_libraries(ulysses_tests gtest gtest_main ulysseslib ${Boost_LIBRARIES} ${ZLIB_LIBRARIES})

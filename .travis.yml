@@ -19,7 +19,8 @@ install:
 - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 90
 - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 90
 before_script:
-- cmake . && make
+- cmake . && make -j
 script:
 #- cd tests && ./tests_install_bats.sh
+- cd tests && ./tests_run_unittests.sh
 - cd tests && bats ${CI:+--tap} ./tests_run_cli.sh

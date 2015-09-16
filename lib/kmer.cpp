@@ -6,10 +6,10 @@
 //
 //
 
-#include "kmer.hpp"
-#include "seed.hpp"
+#include "ulysses/kmer.hpp"
+#include "ulysses/seed.hpp"
 #include <math.h>
-#include "misc.hpp"
+#include "ulysses/misc.hpp"
 
 unsigned int compressed_kmer_size(unsigned int length){
     return (length +4 -1)/4;

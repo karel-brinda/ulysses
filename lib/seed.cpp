@@ -6,7 +6,7 @@
 //
 //
 
-#include "seed.hpp"
+#include "ulysses/seed.hpp"
 
 Seed::Seed(const Seed &seed)
 {

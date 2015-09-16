@@ -10,10 +10,10 @@
 #define bloom_kmer_h
 
 #include <stdlib.h>
-#include "bloom.hpp"
-#include "seed.hpp"
-#include "utils/MurmurHash3.hpp"
-#include "misc.hpp"
+#include "ulysses/bloom.hpp"
+#include "ulysses/seed.hpp"
+#include "MurmurHash3.hpp"
+#include "ulysses/misc.hpp"
 
 unsigned int compressed_kmer_size(unsigned int length);
 

@@ -31,11 +31,12 @@
 #include <boost/serialization/split_member.hpp>
 #include <boost/serialization/vector.hpp>
 
-#include "utils/MurmurHash3.hpp"
-#include "utils/kseq.h"
-#include "seed.hpp"
-#include "kmer.hpp"
-#include "misc.hpp"
+#include "MurmurHash3.hpp"
+#include "kseq.h"
+
+#include "ulysses/seed.hpp"
+#include "ulysses/kmer.hpp"
+#include "ulysses/misc.hpp"
 
 #define PROGRAM_VERSION_TAG 2
 

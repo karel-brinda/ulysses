@@ -15,8 +15,8 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 
-#include "bloom.hpp"
-#include "kmer.hpp"
+#include "ulysses/bloom.hpp"
+#include "ulysses/kmer.hpp"
 
 using namespace std;
 

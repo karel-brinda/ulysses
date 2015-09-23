@@ -288,22 +288,22 @@ int main_create_many(int argc,char** argv){
     
     //save all of them to directory
     auto map_fun = [=]( std::pair<const std::string,Bloom>& p) {  
-                    std::string fname = std::string(bf_fn)+"/"
-                                      +p.first
-                                      +std::string("_a")+std::to_string(as_B)
-                                      +std::string("_h")+std::to_string(p.second.nh)
-                                      +std::string("_s")+std::string(seedstr)
-                                      +std::string("_r")+std::to_string(r)                                      
-                                      +std::string(".bf");
-                    fprintf(stderr, "Saving bloom filter to file %s\n",fname.c_str());
                     if (shrink){
                         double dens, est;        
                         estimate_bloom_size(p.second.array.size(),p.second.ones(),p.second.nh,dens,est);
                         est = est>MIN_BLOOM_CAPACITY?est:MIN_BLOOM_CAPACITY;
                         bitvector::size_type new_size = get_size_in_bytes(p.second.nh,round(est));        
-                        //fprintf(stderr,"Shrinking to size:%ld\n",new_size);
+                        fprintf(stderr,"Shrinking to size:%ld\n",new_size);
                         p.second.shrink((p.second.array.size()/8)/new_size);
                     }
+                    std::string fname = std::string(bf_fn)+"/"
+                                      +p.first
+                                      +std::string("_a")+std::to_string(p.second.array.size()/8)
+                                      +std::string("_h")+std::to_string(p.second.nh)
+                                      +std::string("_s")+std::string(seedstr)
+                                      +std::string("_r")+std::to_string(r)                                      
+                                      +std::string(".bf");
+                    fprintf(stderr, "Saving bloom filter to file %s\n",fname.c_str());
                     if (print_stats){
                         printf("filename\t%s\n",fname.c_str());
                         compute_print_bloom_stats(p.second);

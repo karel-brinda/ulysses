@@ -252,7 +252,7 @@ int main_create_many(int argc,char** argv){
         fprintf(stderr, "         -t       print statistics of the final BF\n");
         fprintf(stderr, "         -e BLM exclude k-mers present in BLM bloom filter\n");
         fprintf(stderr, "         -n BLM include only k-mers present in BLM bloom filter\n");
-        fprintf(stderr, "         -k       shrink before saving to optimal size\n");
+        fprintf(stderr, "         -k       shrink to optimal size before saving\n");
         fprintf(stderr, "\n");
         return 1;
     }
@@ -292,9 +292,12 @@ int main_create_many(int argc,char** argv){
                         double dens, est;        
                         estimate_bloom_size(p.second.array.size(),p.second.ones(),p.second.nh,dens,est);
                         est = est>MIN_BLOOM_CAPACITY?est:MIN_BLOOM_CAPACITY;
-                        bitvector::size_type new_size = get_size_in_bytes(p.second.nh,round(est));        
-                        fprintf(stderr,"Shrinking to size:%ld\n",new_size);
-                        p.second.shrink((p.second.array.size()/8)/new_size);
+                        bitvector::size_type new_size = get_size_in_bytes(p.second.nh,round(est));
+                        double factor = (p.second.array.size()/8)/new_size;
+                        if ((long)(factor)>1){
+                            fprintf(stderr,"Shrinking to size:%ld\n",(p.second.array.size()/8)/(long)(factor));
+                            p.second.shrink((long)factor);
+                        }
                     }
                     std::string fname = std::string(bf_fn)+"/"
                                       +p.first

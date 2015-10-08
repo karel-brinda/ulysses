@@ -205,14 +205,12 @@ bitvector::size_type Bloom::ones() const {
     return ones;
 }
 
-int Bloom::query(const uchar *gstr, int direction) const {
+int Bloom::query(const uchar *gstr, int direction, unsigned int bytes_kmer) const {
     //DF1;
     
     int span = this->seed.span;
-    assert(span>0);
-    int weight = this->seed.weight;
-    coor nh = this->nh;
-    unsigned int bytes_kmer=compressed_kmer_size(weight);
+    assert(span>0);    
+    coor nh = this->nh;    
     
     uchar * compr_kmer = new uchar[bytes_kmer];
     uint64_t * hashes1 = new uint64_t[nh+1];

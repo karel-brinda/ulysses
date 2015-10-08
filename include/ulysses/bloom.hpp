@@ -56,7 +56,7 @@ public:
     int load(const char *fn);
     int save(const char *fn) const;
     int shrink(long factor);
-    int query(const uchar *gstr, int dir) const;
+    int query(const uchar *gstr, int dir, unsigned int bytes_kmer) const;
     bitvector::size_type ones() const;
 
     Bloom& operator=(const Bloom &rhs);

@@ -674,13 +674,15 @@ int main_query(int argc,char** argv){
     fp = gzopen(argv[optind+1], "r");
     assert(fp != Z_NULL);
     seq = kseq_init(fp);
+        
+    unsigned int bytes_kmer=compressed_kmer_size(bf.seed.weight);
     
     while ((l = kseq_read(seq)) >= 0) { // STEP 4: read sequence
         
         for (int dir=0;dir<=d;dir++){
             printf("%s\t%s\t",seq->name.s, dir ? "r" : "f");
             for (int i=0;i<l-bf.seed.span+1;i++){
-                int res=bf.query((uchar*)&(seq->seq.s[i]), dir);
+                int res=bf.query((uchar*)&(seq->seq.s[i]), dir, bytes_kmer);
                 if (res==1){
                     printf("1");
                 }

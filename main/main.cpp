@@ -10,6 +10,8 @@
 #include <getopt.h>
 #include "main.hpp"
 
+#include <boost/regex.hpp>
+
 #define MIN_BLOOM_CAPACITY 1024.
 
 int main(int argc,char** argv){
@@ -44,6 +46,9 @@ int main(int argc,char** argv){
     else if (strcmp(argv[1], "query") == 0) {
         return main_query(argc-1, argv+1);
     }
+    else if (strcmp(argv[1], "query_and_split") == 0) {
+        return main_query_and_split(argc-1, argv+1);
+    }    
     else {
         fprintf(stderr, "Unrecognized command '%s'\n", argv[1]);
         return 1;
@@ -702,3 +707,128 @@ int main_query(int argc,char** argv){
     return 0;
 }
 
+
+int main_query_and_split(int argc,char** argv){
+    
+    int c;
+    
+    //int k=0;
+    int d=0;
+    
+    while ((c = getopt(argc, argv, "r")) >= 0) {
+        switch (c) {
+            case 'r':
+                d=1;
+                break;
+            default:
+                return 1;
+        }
+    }
+    
+    if (optind + 4 != argc) {
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Usage:   ulysses query_and_split [options] <in.bf> <in.fq> <out_found.fa> <out_notfound.fa>\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Options: -r       test also reverse directions of reads\n");
+        fprintf(stderr, "\n");
+        return 1;
+    }
+    
+    Bloom bf(0,0,NULL);
+    bf.load(argv[optind]);
+    
+    gzFile fp;
+    kseq_t *seq;
+    int l;
+        
+    
+    fp = gzopen(argv[optind+1], "r");
+    assert(fp != Z_NULL);
+    seq = kseq_init(fp);
+    
+    FILE *ffp, *nffp;    
+    ffp = fopen(argv[optind+2], "w");
+    nffp = fopen(argv[optind+3], "w");
+    
+    if (ffp == NULL || nffp == NULL) {
+        fprintf(stderr, "Can't open output files for writing!\n");
+        exit(1);
+    }
+        
+    unsigned int bytes_kmer=compressed_kmer_size(bf.seed.weight);
+    
+    unsigned int rnum = 0;
+    while ((l = kseq_read(seq)) >= 0) { // STEP 4: read sequence
+        
+            //printf("%s\t%s\t",seq->name.s, dir ? "r" : "f");
+            std::string name(seq->name.s);            
+            //std::string name(">fdsfa|ind|010101010100101|");
+            std::string::iterator start, end;
+            start = name.begin();
+            end = name.end();            
+            boost::regex expression("\\|rnum\\|([0-9]+)\\|ind\\|([01]+)\\|");
+            boost::match_results<std::string::iterator> match;
+            boost::match_flag_type flags = boost::match_default;
+            boost::regex_search(start,end, match, expression, flags);
+            std::string::iterator kmer_it;
+            if (match[0].matched){
+                kmer_it = match[2].first;
+            } else {
+                std::string zeros(l-bf.seed.span+1,'1');
+                name += "|rnum|"+std::to_string(rnum)+"|ind|"+zeros+"|";
+                start = name.begin()+ (end-start);
+                end = name.end();
+                boost::regex_search(start,end, match, expression, flags);
+                kmer_it = match[2].first;
+            }
+            std::string name_notfound(name);
+            std::string::iterator kmer_it_nf = name_notfound.begin() + (kmer_it - name.begin());
+            bool kmer_found = false;
+            bool kmer_notfound = false;
+            for (int i=0;i<l-bf.seed.span+1;i++){
+                if (*kmer_it=='1'){
+                    bool hit = false;
+                    bool nokmer = false;
+                    for (int dir=0;dir<=d;dir++){
+                        int res=bf.query((uchar*)&(seq->seq.s[i]), dir, bytes_kmer);
+                        if (res==-1) {
+                            nokmer = true;
+                            //break;
+                        }
+                        hit|=(res>0);
+                    }
+                    if (nokmer) {
+                        *kmer_it = '0';
+                        *kmer_it_nf = '0';                        
+                    } else if (hit){
+                        *kmer_it = '1'; kmer_found = true;
+                        *kmer_it_nf = '0';                                            
+                    } else { //no hit
+                        *kmer_it = '0';
+                        *kmer_it_nf = '1'; kmer_notfound = true;                        
+                    }                    
+                }
+                ++kmer_it;
+                ++kmer_it_nf;
+            }
+            if (kmer_found){
+                fprintf(ffp,name.c_str());
+                fprintf(ffp,"\n");
+                fprintf(ffp,seq->seq.s);
+                fprintf(ffp,"\n");
+            }
+            if (kmer_notfound){
+                fprintf(nffp,name_notfound.c_str());
+                fprintf(nffp,"\n");
+                fprintf(nffp,seq->seq.s);
+                fprintf(nffp,"\n");
+            }
+            ++rnum;
+    }
+    kseq_destroy(seq);
+    gzclose(fp);
+    fclose(ffp);
+    fclose(nffp);
+    
+    return 0;
+}

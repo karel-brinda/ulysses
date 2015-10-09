@@ -812,12 +812,14 @@ int main_query_and_split(int argc,char** argv){
                 ++kmer_it_nf;
             }
             if (kmer_found){
+                fprintf(ffp,">");
                 fprintf(ffp,name.c_str());
                 fprintf(ffp,"\n");
                 fprintf(ffp,seq->seq.s);
                 fprintf(ffp,"\n");
             }
             if (kmer_notfound){
+                fprintf(nffp,">");
                 fprintf(nffp,name_notfound.c_str());
                 fprintf(nffp,"\n");
                 fprintf(nffp,seq->seq.s);

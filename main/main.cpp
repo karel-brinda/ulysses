@@ -10,6 +10,8 @@
 #include <getopt.h>
 #include "main.hpp"
 
+#include <boost/regex.hpp>
+
 #define MIN_BLOOM_CAPACITY 1024.
 
 int main(int argc,char** argv){
@@ -44,6 +46,9 @@ int main(int argc,char** argv){
     else if (strcmp(argv[1], "query") == 0) {
         return main_query(argc-1, argv+1);
     }
+    else if (strcmp(argv[1], "query_and_split") == 0) {
+        return main_query_and_split(argc-1, argv+1);
+    }    
     else {
         fprintf(stderr, "Unrecognized command '%s'\n", argv[1]);
         return 1;
@@ -242,17 +247,31 @@ int main_create_many(int argc,char** argv){
     if ((optind + 1 != argc)|| (!seedstr_correct(seedstr)) || 
 	Multi_fasta_filename.empty() || ID_to_taxon_map_filename.empty()) {
         fprintf(stderr, "\n");
-        fprintf(stderr, "Usage:   ulysses create_many [options] <out.dir>\n");
+        fprintf(stderr, "Usage:   ulysses create_many [options] -m <file.map> <out.dir>\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "Options: -s STR seed [" DEFAULT_SEED "]\n");
         fprintf(stderr, "         -a INT size of the array in bytes [1048576]\n");
         fprintf(stderr, "         -h INT number of hash functions [6]\n");
+        fprintf(stderr, "         -F <input.fa> optional input fasta file [ default stdin ]\n");
+        fprintf(stderr, "         -m <file.map> required map file mapping read names to taxonomic ids.\n");
         fprintf(stderr, "         -i BLM initial bloom filter to OR with (must have hash and size the same)\n");
         fprintf(stderr, "         -r     include also reverse complements of kmers\n");
         fprintf(stderr, "         -t       print statistics of the final BF\n");
         fprintf(stderr, "         -e BLM exclude k-mers present in BLM bloom filter\n");
         fprintf(stderr, "         -n BLM include only k-mers present in BLM bloom filter\n");
-        fprintf(stderr, "         -k       shrink before saving to optimal size\n");
+        fprintf(stderr, "         -k       shrink to optimal size before saving\n");
+        fprintf(stderr, "\n");        
+        fprintf(stderr, "This program reads fasta format from standard input as default\n");
+        fprintf(stderr, "(or from a file given after -F parameter).\n");
+        fprintf(stderr, "The mapping <file.map> should contain lines of the format:\n");
+        fprintf(stderr, "<read_name> <taxonomic_id>\n");
+        fprintf(stderr, "i.e. two strings separated with a tab character.\n");
+        fprintf(stderr, "In the output directory <out.dir> bloom filter files will be created\n");
+        fprintf(stderr, "with names of the format:\n");
+        fprintf(stderr, "<taxonomic_id>_a<size_of_the_array_in_bytes>_h<number_of_hash_functions>_s<seed_string>_r<0|1>.bf\n");
+        fprintf(stderr, "Only those reads which map their names in <file.map> are used,\n");
+        fprintf(stderr, "and as many bloom filters are created as there are taxonomic_ids\n");    
+        fprintf(stderr, "which have some reads map to them in the input file.\n");
         fprintf(stderr, "\n");
         return 1;
     }
@@ -292,9 +311,12 @@ int main_create_many(int argc,char** argv){
                         double dens, est;        
                         estimate_bloom_size(p.second.array.size(),p.second.ones(),p.second.nh,dens,est);
                         est = est>MIN_BLOOM_CAPACITY?est:MIN_BLOOM_CAPACITY;
-                        bitvector::size_type new_size = get_size_in_bytes(p.second.nh,round(est));        
-                        fprintf(stderr,"Shrinking to size:%ld\n",new_size);
-                        p.second.shrink((p.second.array.size()/8)/new_size);
+                        bitvector::size_type new_size = get_size_in_bytes(p.second.nh,round(est));
+                        double factor = (p.second.array.size()/8)/new_size;
+                        if ((long)(factor)>1){
+                            fprintf(stderr,"Shrinking to size:%ld\n",(p.second.array.size()/8)/(long)(factor));
+                            p.second.shrink((long)factor);
+                        }
                     }
                     std::string fname = std::string(bf_fn)+"/"
                                       +p.first
@@ -671,13 +693,15 @@ int main_query(int argc,char** argv){
     fp = gzopen(argv[optind+1], "r");
     assert(fp != Z_NULL);
     seq = kseq_init(fp);
+        
+    unsigned int bytes_compr_kmer=compressed_kmer_size(bf.seed.weight);
     
     while ((l = kseq_read(seq)) >= 0) { // STEP 4: read sequence
         
         for (int dir=0;dir<=d;dir++){
             printf("%s\t%s\t",seq->name.s, dir ? "r" : "f");
             for (int i=0;i<l-bf.seed.span+1;i++){
-                int res=bf.query((uchar*)&(seq->seq.s[i]), dir);
+                int res=bf.query((uchar*)&(seq->seq.s[i]), dir, bytes_compr_kmer);
                 if (res==1){
                     printf("1");
                 }
@@ -697,3 +721,140 @@ int main_query(int argc,char** argv){
     return 0;
 }
 
+
+int main_query_and_split(int argc,char** argv){
+    
+    int c;
+    
+    //int k=0;
+    int d=0;
+    
+    while ((c = getopt(argc, argv, "r")) >= 0) {
+        switch (c) {
+            case 'r':
+                d=1;
+                break;
+            default:
+                return 1;
+        }
+    }
+    
+    if (optind + 4 != argc) {
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Usage:   ulysses query_and_split [options] <in.bf> <in.fa> <out_found.fa> <out_notfound.fa>\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Options: -r       test also reverse directions of reads\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "This command produces two fasta files with additional strings in read names\n");
+        fprintf(stderr, "of the format: >read_name|rnum|5|ind|011001101001|\n");
+        fprintf(stderr, "where a number after 'rnum' is a read number, either rewritten from the input file\n");
+        fprintf(stderr, "or assigned here counting from 0. Bit flags after 'ind' indicate which kmers \n");
+        fprintf(stderr, "are present in the bloom filter (the file <out_found.fa>) \n");
+        fprintf(stderr, "and which kmers are not present in the bloom filter  (the file <out_notfound.fa>)\n");
+        fprintf(stderr, "Each of these output files can be later used as an input file to this command\n");
+        fprintf(stderr, "to further split sets of kmers in reads with respect of presence in other \n");
+        fprintf(stderr, "bloom filters.\n");
+        fprintf(stderr, "\n");
+        return 1;
+    }
+    
+    Bloom bf(0,0,NULL);
+    bf.load(argv[optind]);
+    
+    gzFile fp;
+    kseq_t *seq;
+    int l;
+        
+    
+    fp = gzopen(argv[optind+1], "r");
+    assert(fp != Z_NULL);
+    seq = kseq_init(fp);
+    
+    FILE *ffp, *nffp;    
+    ffp = fopen(argv[optind+2], "w");
+    nffp = fopen(argv[optind+3], "w");
+    
+    if (ffp == NULL || nffp == NULL) {
+        fprintf(stderr, "Can't open output files for writing!\n");
+        exit(1);
+    }
+        
+    unsigned int bytes_compr_kmer=compressed_kmer_size(bf.seed.weight);
+    
+    unsigned int rnum = 0;
+    while ((l = kseq_read(seq)) >= 0) { // STEP 4: read sequence
+        
+            //printf("%s\t%s\t",seq->name.s, dir ? "r" : "f");
+            std::string name(seq->name.s);            
+            //std::string name(">fdsfa|ind|010101010100101|");
+            std::string::iterator start, end;
+            start = name.begin();
+            end = name.end();            
+            boost::regex expression("\\|rnum\\|([0-9]+)\\|ind\\|([01]+)\\|");
+            boost::match_results<std::string::iterator> match;
+            boost::match_flag_type flags = boost::match_default;
+            boost::regex_search(start,end, match, expression, flags);
+            std::string::iterator kmer_it;
+            if (match[0].matched){
+                kmer_it = match[2].first;
+            } else {
+                std::string zeros(l-bf.seed.span+1,'1');
+                name += "|rnum|"+std::to_string(rnum)+"|ind|"+zeros+"|";
+                start = name.begin()+ (end-start);
+                end = name.end();
+                boost::regex_search(start,end, match, expression, flags);
+                kmer_it = match[2].first;
+            }
+            std::string name_notfound(name);
+            std::string::iterator kmer_it_nf = name_notfound.begin() + (kmer_it - name.begin());
+            bool kmer_found = false;
+            bool kmer_notfound = false;
+            for (int i=0;i<l-bf.seed.span+1;i++){
+                if (*kmer_it=='1'){
+                    bool hit = false;
+                    bool nokmer = false;
+                    for (int dir=0;dir<=d;dir++){
+                        int res=bf.query((uchar*)&(seq->seq.s[i]), dir, bytes_compr_kmer);
+                        if (res==-1) {
+                            nokmer = true;
+                            //break;
+                        }
+                        hit|=(res>0);
+                    }
+                    if (nokmer) {
+                        *kmer_it = '0';
+                        *kmer_it_nf = '0';                        
+                    } else if (hit){
+                        *kmer_it = '1'; kmer_found = true;
+                        *kmer_it_nf = '0';                                            
+                    } else { //no hit
+                        *kmer_it = '0';
+                        *kmer_it_nf = '1'; kmer_notfound = true;                        
+                    }                    
+                }
+                ++kmer_it;
+                ++kmer_it_nf;
+            }
+            if (kmer_found){
+                fprintf(ffp,">");
+                fprintf(ffp,name.c_str());
+                fprintf(ffp,"\n");
+                fprintf(ffp,seq->seq.s);
+                fprintf(ffp,"\n");
+            }
+            if (kmer_notfound){
+                fprintf(nffp,">");
+                fprintf(nffp,name_notfound.c_str());
+                fprintf(nffp,"\n");
+                fprintf(nffp,seq->seq.s);
+                fprintf(nffp,"\n");
+            }
+            ++rnum;
+    }
+    kseq_destroy(seq);
+    gzclose(fp);
+    fclose(ffp);
+    fclose(nffp);
+    
+    return 0;
+}

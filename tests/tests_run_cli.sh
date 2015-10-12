@@ -41,3 +41,7 @@ export PATH=$PATH:$BIN
 @test "CLI: ulysses create_many" {
 	./cli/09*.sh
 }
+
+@test "CLI: ulysses query_and_split" {
+	./cli/10*.sh
+}

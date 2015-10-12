@@ -39,6 +39,8 @@ int main_symmdiffmat(int argc,char** argv);
 
 int main_query(int argc,char** argv);
 
+int main_query_and_split(int argc,char** argv);
+
 int usage();
 
 #endif

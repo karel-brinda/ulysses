@@ -45,3 +45,7 @@ export PATH=$PATH:$BIN
 @test "CLI: ulysses query_and_split" {
 	./cli/10*.sh
 }
+
+@test "CLI: ulysses merge" {
+	./cli/11*.sh
+}

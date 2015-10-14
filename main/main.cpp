@@ -48,7 +48,10 @@ int main(int argc,char** argv){
     }
     else if (strcmp(argv[1], "query_and_split") == 0) {
         return main_query_and_split(argc-1, argv+1);
-    }    
+    }
+    else if (strcmp(argv[1], "merge") == 0) {
+        return main_merge(argc-1, argv+1);
+    }
     else {
         fprintf(stderr, "Unrecognized command '%s'\n", argv[1]);
         return 1;
@@ -721,6 +724,8 @@ int main_query(int argc,char** argv){
     return 0;
 }
 
+#define RNUM_IND_REGEX "\\|rnum\\|([0-9]+)\\|ind\\|([01]+)\\|"
+
 
 int main_query_and_split(int argc,char** argv){
     
@@ -782,24 +787,28 @@ int main_query_and_split(int argc,char** argv){
     unsigned int bytes_compr_kmer=compressed_kmer_size(bf.seed.weight);
     
     unsigned int rnum = 0;
+    std::string::iterator start, end;
+    boost::regex expression(RNUM_IND_REGEX);
+    boost::match_results<std::string::iterator> match;
+    boost::match_flag_type flags = boost::match_default;
     while ((l = kseq_read(seq)) >= 0) { // STEP 4: read sequence
         
             //printf("%s\t%s\t",seq->name.s, dir ? "r" : "f");
-            std::string name(seq->name.s);            
-            //std::string name(">fdsfa|ind|010101010100101|");
-            std::string::iterator start, end;
+            std::string name(seq->name.s);                                    
             start = name.begin();
             end = name.end();            
-            boost::regex expression("\\|rnum\\|([0-9]+)\\|ind\\|([01]+)\\|");
-            boost::match_results<std::string::iterator> match;
-            boost::match_flag_type flags = boost::match_default;
             boost::regex_search(start,end, match, expression, flags);
             std::string::iterator kmer_it;
             if (match[0].matched){
                 kmer_it = match[2].first;
             } else {
-                std::string zeros(l-bf.seed.span+1,'1');
-                name += "|rnum|"+std::to_string(rnum)+"|ind|"+zeros+"|";
+                if (l-bf.seed.span+1<=0)  {
+                    //Skip read if its too short, but preserve numbering
+                    ++rnum;
+                    continue;
+                }
+                std::string ones(l-bf.seed.span+1,'1');
+                name += "|rnum|"+std::to_string(rnum)+"|ind|"+ones+"|";
                 start = name.begin()+ (end-start);
                 end = name.end();
                 boost::regex_search(start,end, match, expression, flags);
@@ -855,6 +864,164 @@ int main_query_and_split(int argc,char** argv){
     gzclose(fp);
     fclose(ffp);
     fclose(nffp);
+    
+    return 0;
+}
+
+
+
+
+int main_merge(int argc,char** argv){
+    
+    int c;
+    
+    //int k=0;
+    bool intersection=false;
+    
+    std::string output_file = "/dev/fd/1"; //default use stdout
+    
+    while ((c = getopt(argc, argv, "iF:")) >= 0) {
+        switch (c) {
+            case 'i':
+                intersection=true;
+                break;
+            case 'F' :
+                output_file = optarg;
+                break;
+            default:
+                return 1;
+        }
+    }
+    
+    if ((optind + 2 != argc)||output_file.empty()) {
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Usage:   ulysses merge [options] <in1.fa> <in2.fa>\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Options: -i    output only intersection of two inputs\n");
+        fprintf(stderr, "Options: -F <out.fa>   output to file (default stdout)\n");
+        fprintf(stderr, "\n");     
+        fprintf(stderr, "This option merges two fasta files with read names\n");
+        fprintf(stderr, "of the format: >read_name|rnum|5|ind|011001101001|\n");
+        fprintf(stderr, "The input files are assumed to be sorted by 'rnum'.\n");     
+        fprintf(stderr, "The output is a fasta file sorted by rnum, where 'ind' bit flags\n");     
+        fprintf(stderr, "in reads with the same 'rnum' are merged by OR-ing bits.\n");     
+        fprintf(stderr, "When -i flag is used only common reads are output, with their bitflags\n");     
+        fprintf(stderr, "merged by AND-ing bits.\n");     
+        fprintf(stderr, "\n");     
+        return 1;
+    }
+    
+    gzFile fp1, fp2;
+    kseq_t *seq1, *seq2;
+    int l1, l2;
+            
+    fp1 = gzopen(argv[optind], "r");
+    assert(fp1 != Z_NULL);
+    seq1 = kseq_init(fp1);
+    
+    fp2 = gzopen(argv[optind+1], "r");
+    assert(fp2 != Z_NULL);
+    seq2 = kseq_init(fp2);
+    
+    FILE *outf;
+    outf = fopen(output_file.c_str(), "w");    
+    
+    if (outf == NULL){ 
+        fprintf(stderr, "Can't open output file for writing!\n");
+        exit(1);
+    }
+            
+    //unsigned int rnum = 0;
+    
+        
+    std::string::iterator start, end;
+    boost::regex expression(RNUM_IND_REGEX);
+    boost::match_results<std::string::iterator> match1, match2;
+    boost::match_flag_type flags = boost::match_default;        
+    
+    std::string name1,name2;
+        
+    l1 = kseq_read(seq1);
+    l2 = kseq_read(seq2);
+    long rnum1=-1,  rnum2=-1;
+    bool isread1=false, isread2=false;
+    do {                 
+        if (l1>=0 && !isread1) {
+            name1 = std::string(seq1->name.s);                        
+            start = name1.begin();
+            end = name1.end();            
+            boost::regex_search(start,end, match1, expression, flags);     
+            assert(match1[0].matched);
+            std::string s_rnum(match1[1].first,match1[1].second);
+            std::size_t pos;
+            rnum1 = std::stol(s_rnum,&pos);
+            isread1 = true;
+        }
+        if (l2>=0 && !isread2) {
+            name2 = std::string(seq2->name.s);
+            start = name2.begin();
+            end = name2.end();            
+            boost::regex_search(start,end, match2, expression, flags);     
+            assert(match2[0].matched);
+            std::string s_rnum(match2[1].first,match2[1].second);
+            std::size_t pos;
+            rnum2 = std::stol(s_rnum,&pos);
+            isread2 = true;
+        }
+        
+        if (isread1 && isread2 && rnum1==rnum2) {
+            std::string::iterator kmer_it1 = match1[2].first;
+            std::string::iterator kmer_it2 = match2[2].first;
+            bool one_found = false;
+            if (intersection){
+                for(;kmer_it1!=match1[2].second;++kmer_it1,++kmer_it2){
+                    *kmer_it1 = std::min(*kmer_it1,*kmer_it2);
+                    one_found = *kmer_it1=='1';
+                }
+            } else {
+                for(;kmer_it1!=match1[2].second;++kmer_it1,++kmer_it2){
+                    *kmer_it1 = std::max(*kmer_it1,*kmer_it2);
+                }
+            }
+            assert(kmer_it2==match2[2].second);
+            
+            if (!intersection || one_found){
+              fprintf(outf,">");
+              fprintf(outf,name1.c_str());
+              fprintf(outf,"\n");
+              fprintf(outf,seq1->seq.s);
+              fprintf(outf,"\n");
+            }
+            
+            l1 = kseq_read(seq1); isread1 = false;
+            l2 = kseq_read(seq2); isread2 = false;       
+        } else        
+        if (isread1 && (!isread2 || rnum1<rnum2)) {
+            if (!intersection) {
+                fprintf(outf,">");
+                fprintf(outf,name1.c_str());
+                fprintf(outf,"\n");
+                fprintf(outf,seq1->seq.s);
+                fprintf(outf,"\n");
+            }
+            l1 = kseq_read(seq1); isread1 = false;            
+        } else
+        if (isread2 && (!isread1 || rnum1>rnum2)) {
+            if (!intersection) {
+                fprintf(outf,">");
+                fprintf(outf,name2.c_str());
+                fprintf(outf,"\n");
+                fprintf(outf,seq2->seq.s);
+                fprintf(outf,"\n");
+            }
+            l2 = kseq_read(seq2); isread2 = false;       
+        }       
+       
+    } while ((l1>=0 && l2>=0) || (!intersection && (l1>=0 || l2>=0) ) );    
+    
+    kseq_destroy(seq1);kseq_destroy(seq2);
+    gzclose(fp1);gzclose(fp2);
+    fclose(outf);
     
     return 0;
 }

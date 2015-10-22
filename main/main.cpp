@@ -726,12 +726,17 @@ int main_query(int argc,char** argv){
 
 #define RNUM_IND_REGEX "\\|rnum\\|([0-9]+)\\|ind\\|([01]+)\\|"
 
+// const size_t DEF_WORK_UNIT_SIZE = 500000;
 
 int main_query_and_split(int argc,char** argv){
+    /*
+    #ifdef _OPENMP
+    omp_set_num_threads(1);   
+    #endif
+    size_t Work_unit_size = DEF_WORK_UNIT_SIZE;
+    */
     
-    int c;
-    
-    //int k=0;
+    int c;    
     int d=0;
     
     while ((c = getopt(argc, argv, "r")) >= 0) {
@@ -739,6 +744,24 @@ int main_query_and_split(int argc,char** argv){
             case 'r':
                 d=1;
                 break;
+          /*  case 't' :
+                sig = atoll(optarg);
+                if (sig <= 0)
+                errx(EX_USAGE, "can't use nonpositive thread count");
+                #ifdef _OPENMP
+                if (sig > omp_get_num_procs())
+                errx(EX_USAGE, "thread count exceeds number of processors");
+                Num_threads = sig;
+                omp_set_num_threads(Num_threads);
+                #endif
+                break;
+              case 'u' :
+                sig = atoll(optarg);
+                if (sig <= 0)
+                errx(EX_USAGE, "can't use nonpositive work unit size");
+                Work_unit_size = sig;
+                break;    
+         */
             default:
                 return 1;
         }
@@ -860,6 +883,7 @@ int main_query_and_split(int argc,char** argv){
             }
             ++rnum;
     }
+    //fprintf(stderr,"Last kseq_read:%d",kseq_read(seq));
     kseq_destroy(seq);
     gzclose(fp);
     fclose(ffp);

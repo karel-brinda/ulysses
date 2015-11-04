@@ -286,26 +286,26 @@ int main_create_many(int argc,char** argv){
     read_ID_to_taxon_map(ID_to_taxon_map_filename);
     fprintf(stderr, "DONE.\n");
     
-    Bloom initial_bf(0,0,nullptr);
+    Bloom initial_bf(0,0,NULL);
     if (initial_bloom_filename.size()>0){
         initial_bf.load(initial_bloom_filename.c_str());
         assert((initial_bf.nh==(bitvector::size_type)nh)&&(initial_bf.array.size()==(bitvector::size_type)(as_B*8)));
     }
     
-    Bloom exclude_bf(0,0,nullptr);
+    Bloom exclude_bf(0,0,NULL);
     if (exclude_bloom_filename.size()>0){
         exclude_bf.load(exclude_bloom_filename.c_str());
     }
 
-    Bloom include_bf(0,0,nullptr);
+    Bloom include_bf(0,0,NULL);
     if (include_bloom_filename.size()>0){
         include_bf.load(include_bloom_filename.c_str());
     }
 
     std::map<std::string,Bloom> * taxon_bloom_map = bloom_create_many_blooms(
-        initial_bloom_filename.size()>0?&initial_bf:nullptr,       
-        exclude_bloom_filename.size()>0?&exclude_bf:nullptr,
-        include_bloom_filename.size()>0?&include_bf:nullptr,
+        initial_bloom_filename.size()>0?&initial_bf:NULL,       
+        exclude_bloom_filename.size()>0?&exclude_bf:NULL,
+        include_bloom_filename.size()>0?&include_bf:NULL,
                              as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r);
     
     //save all of them to directory

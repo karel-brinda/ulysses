@@ -342,10 +342,10 @@ map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
     int l;
     
     unsigned int min_nh=nh, min_inc_nh=nh;
-    if (exclude_bf!=nullptr) {
+    if (exclude_bf!=NULL) {
         min_nh=exclude_bf->nh<nh?exclude_bf->nh:nh;
     }
-    if (include_bf!=nullptr) {
+    if (include_bf!=NULL) {
         min_inc_nh=include_bf->nh<nh?include_bf->nh:nh;
     }
         
@@ -377,7 +377,7 @@ map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
             Bloom & bf = (*taxon_bloom_map)[taxid];	
             
             if (bf.array.size()<=0)  {//This is a new bf, not initialized yet
-                if (initial_bf==nullptr)
+                if (initial_bf==NULL)
                     bf.init(as_b, nh, seedstr);
                 else
                     bf = *initial_bf;
@@ -395,14 +395,14 @@ map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
                     compute_hashes(compr_kmer, bytes_kmer, hashes1, nh);
                     
                     bool do_set = true;
-                    if (exclude_bf!=nullptr) {
+                    if (exclude_bf!=NULL) {
                        bool all_in = true;                        
                        for(unsigned int j=0;j<min_nh;j++){                    
                          all_in&=exclude_bf->array.test(hashes1[j] % exclude_bf->array.size());
                        }
                        do_set&=!all_in;
                     }
-                    if (include_bf!=nullptr) {
+                    if (include_bf!=NULL) {
                        bool all_in = true;                        
                        for(unsigned int j=0;j<min_inc_nh;j++){                    
                          all_in&=include_bf->array.test(hashes1[j] % include_bf->array.size());

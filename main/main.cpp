@@ -80,6 +80,8 @@ int usage(){
     fprintf(stderr, "         hamming       print Hamming distance matrix for given Bloom filters\n");
     fprintf(stderr, "         symmdiffmat   print set symmetric distance matrix for given Bloom filters\n");
     fprintf(stderr, "         query         query a Bloom filter\n");
+    fprintf(stderr, "         query_and_split    query a Bloom filter and split output k-mer wise to classified/nonclassified\n");
+    fprintf(stderr, "         merge         merge two fasta files k-mer wise, with readnames of the format >read_name|rnum|5|ind|011001101001|\n");
     fprintf(stderr, "\n");
     return 1;
 }
@@ -821,6 +823,20 @@ public:
             {};
     ~OutputWorkUnit(){};
     
+    OutputWorkUnit(OutputWorkUnit && other):
+      priority( std::move(other.priority) ),
+      classified( std::move(other.classified)),
+      unclassified( std::move(other.unclassified)){} 
+      
+    OutputWorkUnit& operator=(OutputWorkUnit&& other){
+        if (this != &other) {
+            std::swap(priority,other.priority);
+            std::swap(classified,other.classified);
+            std::swap(unclassified,other.unclassified);
+        }
+        return *this;
+    }
+    
     bool operator>(const OutputWorkUnit & ou) const{
         return priority>ou.priority;
     };
@@ -871,6 +887,8 @@ int main_query_and_split(int argc,char** argv){
         fprintf(stderr, "Usage:   ulysses query_and_split [options] <in.bf> <in.fa> <out_found.fa> <out_notfound.fa>\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "Options: -r       test also reverse directions of reads\n");
+        fprintf(stderr, "         -t #     Number of threads\n");
+       fprintf(stderr,  "         -u #     Thread work unit size (in bp, def.=%lu)\n", DEF_WORK_UNIT_SIZE); 
         fprintf(stderr, "\n");
         fprintf(stderr, "This command produces two fasta files with additional strings in read names\n");
         fprintf(stderr, "of the format: >read_name|rnum|5|ind|011001101001|\n");
@@ -970,6 +988,9 @@ int main_query_and_split(int argc,char** argv){
                     fprintf(ffp, co.c_str());
                     fprintf(nffp, uco.c_str());
                     ++workunit_num_output_now;
+                    
+                    //if (!out_pq.empty())
+                    //    std::cerr << "Output queue of size " << out_pq.size() <<"\n";                    
                     while (!out_pq.empty() && 
                             out_pq.top().priority==workunit_num_output_now) {                                        
                         fprintf(ffp, out_pq.top().classified.c_str());

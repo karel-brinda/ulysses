@@ -8,6 +8,12 @@
 
 #include <vector>
 #include <getopt.h>
+#include <err.h>
+#include <omp.h>
+
+#include <queue>
+#include <utility>
+
 #include "main.hpp"
 
 #include <boost/regex.hpp>
@@ -730,7 +736,7 @@ int main_query(int argc,char** argv){
 void classify_read(std::string &name, std::string &seqs, Bloom & bf, 
                    int d, unsigned int bytes_compr_kmer,
                    boost::regex & expression,
-                   unsigned long & rnum,
+                   uint64_t & rnum,
                    std::ostringstream &class_oss,
                    std::ostringstream &unclass_oss){
 
@@ -804,40 +810,57 @@ void classify_read(std::string &name, std::string &seqs, Bloom & bf,
 
 const size_t DEF_WORK_UNIT_SIZE = 500000;
 
+class OutputWorkUnit {
+public:
+    uint64_t priority;
+    std::string classified;
+    std::string unclassified;
+    
+    OutputWorkUnit(uint64_t p, std::string &&cs, std::string &&ucs):
+            priority(p),classified(std::move(cs)),unclassified(std::move(ucs))
+            {};
+    ~OutputWorkUnit(){};
+    
+    bool operator>(const OutputWorkUnit & ou) const{
+        return priority>ou.priority;
+    };
+};
+
+
 int main_query_and_split(int argc,char** argv){
-    /*
+    
+    int Num_threads = 1;
     #ifdef _OPENMP
-    omp_set_num_threads(1);   
+    omp_set_num_threads(Num_threads);   
     #endif
-    size_t Work_unit_size = DEF_WORK_UNIT_SIZE;
-    */
+    size_t Work_unit_size = DEF_WORK_UNIT_SIZE;        
     
     int c;    
     int d=0;
+    long long sig;
     
-    while ((c = getopt(argc, argv, "r")) >= 0) {
+    while ((c = getopt(argc, argv, "rt:u:")) >= 0) {
         switch (c) {
             case 'r':
                 d=1;
                 break;
-          /*  case 't' :
+            case 't' :
                 sig = atoll(optarg);
                 if (sig <= 0)
-                errx(EX_USAGE, "can't use nonpositive thread count");
+                    errx(EX_USAGE, "can't use nonpositive thread count");
                 #ifdef _OPENMP
                 if (sig > omp_get_num_procs())
-                errx(EX_USAGE, "thread count exceeds number of processors");
+                    errx(EX_USAGE, "thread count exceeds number of processors");
                 Num_threads = sig;
                 omp_set_num_threads(Num_threads);
                 #endif
                 break;
-              case 'u' :
+            case 'u' :
                 sig = atoll(optarg);
                 if (sig <= 0)
-                errx(EX_USAGE, "can't use nonpositive work unit size");
+                    errx(EX_USAGE, "can't use nonpositive work unit size");
                 Work_unit_size = sig;
-                break;    
-         */
+                break;            
             default:
                 return 1;
         }
@@ -867,9 +890,7 @@ int main_query_and_split(int argc,char** argv){
     
     gzFile fp;
     kseq_t *seq;
-    
-        
-    
+                
     fp = gzopen(argv[optind+1], "r");
     assert(fp != Z_NULL);
     seq = kseq_init(fp);
@@ -884,26 +905,87 @@ int main_query_and_split(int argc,char** argv){
     }
         
     unsigned int bytes_compr_kmer=compressed_kmer_size(bf.seed.weight);
-    
-    long l = 1;
-    unsigned long rnum = 0;
-    boost::regex expression(RNUM_IND_REGEX);
-    std::ostringstream classified_output_ss, unclassified_output_ss;
-    while ((l = kseq_read(seq)) >= 0) { // STEP 4: read sequence
         
-            std::string name(seq->name.s); 
-            std::string seqs(seq->seq.s);
-
-            classified_output_ss.str("");
-            unclassified_output_ss.str("");
-            classify_read(name, seqs, bf,d, bytes_compr_kmer,
-                   expression, rnum,
-                   classified_output_ss,
-                   unclassified_output_ss);
+    long l = 0;
+    uint64_t total_workunits = 0;
+    uint64_t workunit_num_output_now = 0;
+    uint64_t total_sequences = 0;
+    uint64_t total_sequences_processed = 0;
+    uint64_t total_bases = 0;    
+    
+    std::priority_queue< OutputWorkUnit, 
+                         std::vector< OutputWorkUnit >, 
+                         std::greater< OutputWorkUnit > > out_pq;
+    
+    boost::regex expression(RNUM_IND_REGEX);
+    
+    #pragma omp parallel
+    {
+        uint64_t rnum;
+        uint64_t workunit_num;
+        std::ostringstream classified_output_ss, unclassified_output_ss;
+        std::vector<std::pair<std::string,std::string> > work_unit;
+        
+        while (l>=0) { //while reader is valid, non-critical check
+            work_unit.clear();
+            size_t total_nt = 0;
+            bool empty_workunit = true;
+            #pragma omp critical(get_input)
+            {
+                rnum = total_sequences; // rewrite reads numbering
+                workunit_num = total_workunits;
+                while (total_nt < Work_unit_size) {
+                    l = kseq_read(seq);
+                    if (! (l>=0))
+                        break;
+                    empty_workunit = false;
+                    work_unit.emplace_back(seq->name.s, seq->seq.s);                    
+                    total_nt += work_unit.back().second.length();
+                    ++total_sequences;
+                }
+                if (!empty_workunit)
+                    ++total_workunits;
+            } // end critical
             
-            fprintf(ffp, classified_output_ss.str().c_str());
-            fprintf(nffp, unclassified_output_ss.str().c_str());
-    }
+            if (empty_workunit)
+                break;
+            
+            classified_output_ss.str("");
+            unclassified_output_ss.str("");            
+            for (size_t j = 0; j < work_unit.size(); j++)
+                    classify_read(work_unit[j].first, work_unit[j].second, 
+                                  bf, d, bytes_compr_kmer,
+                                  expression, rnum,
+                                  classified_output_ss, unclassified_output_ss);
+                    
+            #pragma omp critical(write_output)
+            {
+                total_sequences_processed += work_unit.size();
+                total_bases += total_nt;
+                std::cerr << "\rProcessed " << total_sequences_processed << " sequences (" << total_bases << " bp) ...";
+                
+                if (workunit_num==workunit_num_output_now) {
+                    std::string co(std::move(classified_output_ss.str()));
+                    std::string uco(std::move(unclassified_output_ss.str()));
+                    fprintf(ffp, co.c_str());
+                    fprintf(nffp, uco.c_str());
+                    ++workunit_num_output_now;
+                    while (!out_pq.empty() && 
+                            out_pq.top().priority==workunit_num_output_now) {                                        
+                        fprintf(ffp, out_pq.top().classified.c_str());
+                        fprintf(nffp,out_pq.top().unclassified.c_str()); 
+                        out_pq.pop();
+                        ++workunit_num_output_now;
+                    }
+                } else {
+                    out_pq.emplace(workunit_num, std::move(classified_output_ss.str()),
+                                               std::move(unclassified_output_ss.str()));                    
+                }                
+            } //end critical
+        }
+    } //end parallel section
+    
+    assert(out_pq.empty());
     //fprintf(stderr,"Last kseq_read:%d",kseq_read(seq));
     kseq_destroy(seq);
     gzclose(fp);

@@ -14,7 +14,7 @@ set(PROJECT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 #################
 
 #add_definitions(-O3 -W -Wall -Wextra -pedantic -std=c++11 -g -pg)
-SET(GCC_COVERAGE_COMPILE_FLAGS "-O3 -W -Wall -Wextra -pedantic -std=c++0x") # -fopenmp -g -pg")
+SET(GCC_COVERAGE_COMPILE_FLAGS "-O3 -W -Wall -Wextra -pedantic -std=c++0x -fopenmp") #-g -pg")
 SET(GCC_COVERAGE_LINK_FLAGS    "") #"-pg")
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")

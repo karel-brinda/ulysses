@@ -726,7 +726,83 @@ int main_query(int argc,char** argv){
 
 #define RNUM_IND_REGEX "\\|rnum\\|([0-9]+)\\|ind\\|([01]+)\\|"
 
-// const size_t DEF_WORK_UNIT_SIZE = 500000;
+
+void classify_read(std::string &name, std::string &seqs, Bloom & bf, 
+                   int d, unsigned int bytes_compr_kmer,
+                   boost::regex & expression,
+                   unsigned long & rnum,
+                   std::ostringstream &class_oss,
+                   std::ostringstream &unclass_oss){
+
+    std::string::iterator start, end;    
+    boost::match_results<std::string::iterator> match;
+
+    const char * seqs_char = seqs.c_str();
+    
+    start = name.begin();
+    end = name.end();            
+    boost::regex_search(start,end, match, expression, boost::match_default);
+    std::string::iterator kmer_it;
+    if (match[0].matched){
+        //std::string s_rnum(match[1].first,match[1].second);            
+        //rnum = std::stol(s_rnum);
+        kmer_it = match[2].first;
+    } else {
+        if ((long)seqs.length()-bf.seed.span+1<=0)  {
+            //Skip read if its too short, but preserve numbering
+            ++rnum;
+            return;
+        }
+        std::string ones(seqs.length()-bf.seed.span+1,'1');
+        name += "|rnum|"+std::to_string(rnum)+"|ind|"+ones+"|";
+        start = name.begin()+ (end-start);
+        end = name.end();
+        boost::regex_search(start,end, match, expression, boost::match_default);
+        kmer_it = match[2].first;
+    }
+    ++rnum;
+    std::string name_notfound(name);
+    std::string::iterator kmer_it_nf = name_notfound.begin() + (kmer_it - name.begin());
+    bool kmer_found = false;
+    bool kmer_notfound = false;
+    for (long i=0;i<((long)seqs.length()-bf.seed.span+1);i++){
+        if (*kmer_it=='1'){
+            bool hit = false;
+            bool nokmer = false;
+            for (int dir=0;dir<=d;dir++){
+                int res=bf.query((const uchar*)&(seqs_char[i]), dir, bytes_compr_kmer);
+                if (res==-1) {
+                    nokmer = true;
+                    //break;
+                }
+                hit|=(res>0);
+            }
+            if (nokmer) {
+                *kmer_it = '0';
+                *kmer_it_nf = '0';                        
+            } else if (hit){
+                *kmer_it = '1'; kmer_found = true;
+                *kmer_it_nf = '0';                                            
+            } else { //no hit
+                *kmer_it = '0';
+                *kmer_it_nf = '1'; kmer_notfound = true;                        
+            }                    
+        }
+        ++kmer_it;
+        ++kmer_it_nf;
+    }
+    if (kmer_found){
+        class_oss << ">" << name << "\n" 
+                  << seqs << "\n";
+    }
+    if (kmer_notfound){
+        unclass_oss << ">" << name_notfound << "\n" 
+                  << seqs << "\n";
+    }                    
+}
+
+
+const size_t DEF_WORK_UNIT_SIZE = 500000;
 
 int main_query_and_split(int argc,char** argv){
     /*
@@ -791,7 +867,7 @@ int main_query_and_split(int argc,char** argv){
     
     gzFile fp;
     kseq_t *seq;
-    int l;
+    
         
     
     fp = gzopen(argv[optind+1], "r");
@@ -809,79 +885,24 @@ int main_query_and_split(int argc,char** argv){
         
     unsigned int bytes_compr_kmer=compressed_kmer_size(bf.seed.weight);
     
-    unsigned int rnum = 0;
-    std::string::iterator start, end;
+    long l = 1;
+    unsigned long rnum = 0;
     boost::regex expression(RNUM_IND_REGEX);
-    boost::match_results<std::string::iterator> match;
-    boost::match_flag_type flags = boost::match_default;
+    std::ostringstream classified_output_ss, unclassified_output_ss;
     while ((l = kseq_read(seq)) >= 0) { // STEP 4: read sequence
         
-            //printf("%s\t%s\t",seq->name.s, dir ? "r" : "f");
-            std::string name(seq->name.s);                                    
-            start = name.begin();
-            end = name.end();            
-            boost::regex_search(start,end, match, expression, flags);
-            std::string::iterator kmer_it;
-            if (match[0].matched){
-                kmer_it = match[2].first;
-            } else {
-                if (l-bf.seed.span+1<=0)  {
-                    //Skip read if its too short, but preserve numbering
-                    ++rnum;
-                    continue;
-                }
-                std::string ones(l-bf.seed.span+1,'1');
-                name += "|rnum|"+std::to_string(rnum)+"|ind|"+ones+"|";
-                start = name.begin()+ (end-start);
-                end = name.end();
-                boost::regex_search(start,end, match, expression, flags);
-                kmer_it = match[2].first;
-            }
-            std::string name_notfound(name);
-            std::string::iterator kmer_it_nf = name_notfound.begin() + (kmer_it - name.begin());
-            bool kmer_found = false;
-            bool kmer_notfound = false;
-            for (int i=0;i<l-bf.seed.span+1;i++){
-                if (*kmer_it=='1'){
-                    bool hit = false;
-                    bool nokmer = false;
-                    for (int dir=0;dir<=d;dir++){
-                        int res=bf.query((uchar*)&(seq->seq.s[i]), dir, bytes_compr_kmer);
-                        if (res==-1) {
-                            nokmer = true;
-                            //break;
-                        }
-                        hit|=(res>0);
-                    }
-                    if (nokmer) {
-                        *kmer_it = '0';
-                        *kmer_it_nf = '0';                        
-                    } else if (hit){
-                        *kmer_it = '1'; kmer_found = true;
-                        *kmer_it_nf = '0';                                            
-                    } else { //no hit
-                        *kmer_it = '0';
-                        *kmer_it_nf = '1'; kmer_notfound = true;                        
-                    }                    
-                }
-                ++kmer_it;
-                ++kmer_it_nf;
-            }
-            if (kmer_found){
-                fprintf(ffp,">");
-                fprintf(ffp,name.c_str());
-                fprintf(ffp,"\n");
-                fprintf(ffp,seq->seq.s);
-                fprintf(ffp,"\n");
-            }
-            if (kmer_notfound){
-                fprintf(nffp,">");
-                fprintf(nffp,name_notfound.c_str());
-                fprintf(nffp,"\n");
-                fprintf(nffp,seq->seq.s);
-                fprintf(nffp,"\n");
-            }
-            ++rnum;
+            std::string name(seq->name.s); 
+            std::string seqs(seq->seq.s);
+
+            classified_output_ss.str("");
+            unclassified_output_ss.str("");
+            classify_read(name, seqs, bf,d, bytes_compr_kmer,
+                   expression, rnum,
+                   classified_output_ss,
+                   unclassified_output_ss);
+            
+            fprintf(ffp, classified_output_ss.str().c_str());
+            fprintf(nffp, unclassified_output_ss.str().c_str());
     }
     //fprintf(stderr,"Last kseq_read:%d",kseq_read(seq));
     kseq_destroy(seq);
@@ -976,9 +997,8 @@ int main_merge(int argc,char** argv){
             end = name1.end();            
             boost::regex_search(start,end, match1, expression, flags);     
             assert(match1[0].matched);
-            std::string s_rnum(match1[1].first,match1[1].second);
-            std::size_t pos;
-            rnum1 = std::stol(s_rnum,&pos);
+            std::string s_rnum(match1[1].first,match1[1].second);            
+            rnum1 = std::stol(s_rnum);
             isread1 = true;
         }
         if (l2>=0 && !isread2) {
@@ -987,9 +1007,8 @@ int main_merge(int argc,char** argv){
             end = name2.end();            
             boost::regex_search(start,end, match2, expression, flags);     
             assert(match2[0].matched);
-            std::string s_rnum(match2[1].first,match2[1].second);
-            std::size_t pos;
-            rnum2 = std::stol(s_rnum,&pos);
+            std::string s_rnum(match2[1].first,match2[1].second);            
+            rnum2 = std::stol(s_rnum);
             isread2 = true;
         }
         

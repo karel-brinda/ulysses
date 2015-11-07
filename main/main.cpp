@@ -983,7 +983,7 @@ int main_query_and_split(int argc,char** argv){
                 total_bases += total_nt;
                 std::cerr << "\rProcessed " << total_sequences_processed << " sequences (" << total_bases << " bp) ...";
 
-#ifdef DEBUG                
+#ifndef NDEBUG                
                 if (!out_pq.empty()) {                    
                     if ((recent_max_pq+10)<out_pq.size()){
                         recent_max_pq=out_pq.size();

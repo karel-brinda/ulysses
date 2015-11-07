@@ -9,7 +9,7 @@
 #ifndef ulysses_misc_h
 #define ulysses_misc_h
 
-#define DEBUG 0
+#define DEBUG 1
 
 
 #include <stdint.h>

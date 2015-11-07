@@ -934,7 +934,8 @@ int main_query_and_split(int argc,char** argv){
     std::priority_queue< OutputWorkUnit, 
                          std::vector< OutputWorkUnit >, 
                          std::greater< OutputWorkUnit > > out_pq;
-    
+    uint64_t recent_max_pq = 0;
+                         
     boost::regex expression(RNUM_IND_REGEX);
     
     #pragma omp parallel
@@ -981,16 +982,22 @@ int main_query_and_split(int argc,char** argv){
                 total_sequences_processed += work_unit.size();
                 total_bases += total_nt;
                 std::cerr << "\rProcessed " << total_sequences_processed << " sequences (" << total_bases << " bp) ...";
-                
+
+#ifdef DEBUG                
+                if (!out_pq.empty()) {                    
+                    if ((recent_max_pq+10)<out_pq.size()){
+                        recent_max_pq=out_pq.size();
+                        std::cerr << "Output queue of size " << out_pq.size() <<"\n";
+                    }
+                }
+#endif
                 if (workunit_num==workunit_num_output_now) {
                     std::string co(std::move(classified_output_ss.str()));
                     std::string uco(std::move(unclassified_output_ss.str()));
                     fprintf(ffp, co.c_str());
                     fprintf(nffp, uco.c_str());
                     ++workunit_num_output_now;
-                    
-                    //if (!out_pq.empty())
-                    //    std::cerr << "Output queue of size " << out_pq.size() <<"\n";                    
+                                        
                     while (!out_pq.empty() && 
                             out_pq.top().priority==workunit_num_output_now) {                                        
                         fprintf(ffp, out_pq.top().classified.c_str());

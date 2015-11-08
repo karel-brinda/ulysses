@@ -823,11 +823,16 @@ public:
             {};
     ~OutputWorkUnit(){};
     
+    OutputWorkUnit(const OutputWorkUnit& other):
+      priority( other.priority ),
+      classified( other.classified ),
+      unclassified( other.unclassified ){} 
+    
     OutputWorkUnit(OutputWorkUnit && other):
       priority( std::move(other.priority) ),
       classified( std::move(other.classified)),
-      unclassified( std::move(other.unclassified)){} 
-      
+      unclassified( std::move(other.unclassified)){}     
+    
     OutputWorkUnit& operator=(OutputWorkUnit&& other){
         if (this != &other) {
             std::swap(priority,other.priority);
@@ -836,6 +841,8 @@ public:
         }
         return *this;
     }
+     
+    OutputWorkUnit& operator=(const OutputWorkUnit&); // no implementation 
     
     bool operator>(const OutputWorkUnit & ou) const{
         return priority>ou.priority;
@@ -992,10 +999,8 @@ int main_query_and_split(int argc,char** argv){
                 }
 #endif
                 if (workunit_num==workunit_num_output_now) {
-                    std::string co(std::move(classified_output_ss.str()));
-                    std::string uco(std::move(unclassified_output_ss.str()));
-                    fprintf(ffp, co.c_str());
-                    fprintf(nffp, uco.c_str());
+                    fprintf(ffp, classified_output_ss.str().c_str());
+                    fprintf(nffp, unclassified_output_ss.str().c_str());
                     ++workunit_num_output_now;
                                         
                     while (!out_pq.empty() && 
@@ -1006,8 +1011,8 @@ int main_query_and_split(int argc,char** argv){
                         ++workunit_num_output_now;
                     }
                 } else {
-                    out_pq.emplace(workunit_num, std::move(classified_output_ss.str()),
-                                               std::move(unclassified_output_ss.str()));                    
+                    out_pq.emplace(workunit_num, classified_output_ss.str(),
+                                               unclassified_output_ss.str());                    
                 }                
             } //end critical
         }

@@ -208,21 +208,23 @@ bitvector::size_type Bloom::ones() const {
 int Bloom::query(const uchar *gstr, int direction, unsigned int bytes_compr_kmer) const {
     //DF1;
     
-    int span = this->seed.span;
-    assert(span>0);    
-    coor nh = this->nh;    
-    
     uchar * compr_kmer = new uchar[bytes_compr_kmer];
     uint64_t * hashes1 = new uint64_t[nh+1];
+    
+    int span = this->seed.span;
+    assert(span>0);    
+    coor nh = this->nh;        
             
     if(compress_kmer(gstr,&(this->seed),bytes_compr_kmer,compr_kmer,direction)!=0){
         return -1;
     }        
     compute_hashes(compr_kmer, bytes_compr_kmer, hashes1, nh);
     
+    int res = 1;
     for(int j=0;j<nh;j++){            
-    if (!this->array.test(hashes1[j] % this->array.size())){
-            return 0;
+        if (!this->array.test(hashes1[j] % this->array.size())){
+            res=0;
+            break;
         }
     }
     
@@ -230,7 +232,7 @@ int Bloom::query(const uchar *gstr, int direction, unsigned int bytes_compr_kmer
     delete [] hashes1;
     
     //DF2;        
-    return 1;
+    return res;
 }
 
 Bloom& Bloom::operator=(const Bloom &rhs){

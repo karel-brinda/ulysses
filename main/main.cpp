@@ -810,7 +810,7 @@ void classify_read(std::string &name, std::string &seqs, Bloom & bf,
 }
 
 
-const size_t DEF_WORK_UNIT_SIZE = 500000;
+const size_t DEF_WORK_UNIT_SIZE = 100000;
 
 class OutputWorkUnit {
 public:

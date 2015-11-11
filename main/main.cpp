@@ -823,13 +823,13 @@ public:
             {};
     ~OutputWorkUnit(){};
     
-    OutputWorkUnit(const OutputWorkUnit& other):
-      priority( other.priority ),
+    OutputWorkUnit(const OutputWorkUnit& other) = delete;
+   /*:priority( other.priority ),
       classified( other.classified ),
-      unclassified( other.unclassified ){} 
+      unclassified( other.unclassified ){} */
     
-    OutputWorkUnit(OutputWorkUnit && other):
-      priority( std::move(other.priority) ),
+    OutputWorkUnit(OutputWorkUnit && other) noexcept
+     :priority( std::move(other.priority) ),
       classified( std::move(other.classified)),
       unclassified( std::move(other.unclassified)){}     
     

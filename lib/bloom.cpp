@@ -208,8 +208,11 @@ bitvector::size_type Bloom::ones() const {
 int Bloom::query(const uchar *gstr, int direction, unsigned int bytes_compr_kmer) const {
     //DF1;
     
-    uchar * compr_kmer = new uchar[bytes_compr_kmer];
-    uint64_t * hashes1 = new uint64_t[nh+1];
+    //uchar * compr_kmer = new uchar[bytes_compr_kmer];
+    //uint64_t * hashes1 = new uint64_t[nh+1];
+    //Instead of the above: GCC extension: Variable length arrays
+    uchar compr_kmer[bytes_compr_kmer];
+    uint64_t hashes1[nh+1];    
     
     int span = this->seed.span;
     assert(span>0);    
@@ -220,19 +223,14 @@ int Bloom::query(const uchar *gstr, int direction, unsigned int bytes_compr_kmer
     }        
     compute_hashes(compr_kmer, bytes_compr_kmer, hashes1, nh);
     
-    int res = 1;
     for(int j=0;j<nh;j++){            
         if (!this->array.test(hashes1[j] % this->array.size())){
-            res=0;
-            break;
+            return 0;
         }
     }
     
-    delete [] compr_kmer;
-    delete [] hashes1;
-    
     //DF2;        
-    return res;
+    return 1;
 }
 
 Bloom& Bloom::operator=(const Bloom &rhs){

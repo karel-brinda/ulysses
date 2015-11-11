@@ -15,6 +15,8 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 
+#include <stdlib.h>
+
 #include "ulysses/bloom.hpp"
 #include "ulysses/kmer.hpp"
 
@@ -211,8 +213,11 @@ int Bloom::query(const uchar *gstr, int direction, unsigned int bytes_compr_kmer
     //uchar * compr_kmer = new uchar[bytes_compr_kmer];
     //uint64_t * hashes1 = new uint64_t[nh+1];
     //Instead of the above: GCC extension: Variable length arrays
-    uchar compr_kmer[bytes_compr_kmer];
-    uint64_t hashes1[nh+1];    
+    //uchar compr_kmer[bytes_compr_kmer];
+    //uint64_t hashes1[nh+1];    
+    
+    uchar * compr_kmer = (uchar*) alloca(bytes_compr_kmer*sizeof(uchar));
+    uint64_t * hashes1 = (uint64_t*) alloca((nh+1)*sizeof(uint64_t));
     
     int span = this->seed.span;
     assert(span>0);    

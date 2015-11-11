@@ -828,7 +828,7 @@ public:
       classified( other.classified ),
       unclassified( other.unclassified ){} */
     
-    OutputWorkUnit(OutputWorkUnit && other) noexcept
+    OutputWorkUnit(OutputWorkUnit && other)
      :priority( std::move(other.priority) ),
       classified( std::move(other.classified)),
       unclassified( std::move(other.unclassified)){}     
@@ -842,7 +842,7 @@ public:
         return *this;
     }
      
-    OutputWorkUnit& operator=(const OutputWorkUnit&); // no implementation 
+    OutputWorkUnit& operator=(const OutputWorkUnit&) = delete; // no implementation 
     
     bool operator>(const OutputWorkUnit & ou) const{
         return priority>ou.priority;

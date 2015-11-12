@@ -345,6 +345,7 @@ int main_create_many(int argc,char** argv){
         exclude_bloom_filename.size()>0?&exclude_bf:NULL,
         include_bloom_filename.size()>0?&include_bf:NULL,
                              as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r,
+                             Num_threads,
                              Work_unit_size);
     
     //save all of them to directory

@@ -394,6 +394,9 @@ map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
                 continue;
             long num_threads = (end-start+work_unit_size-1)/work_unit_size;
             num_threads = num_threads>(long)max_threads?max_threads:num_threads;
+            //Enlarge work_unit_size so it's optimal
+            long curr_work_unit_size = (end-start+num_threads-1)/num_threads;
+            curr_work_unit_size = curr_work_unit_size<(long)work_unit_size ? work_unit_size:curr_work_unit_size;
             #pragma omp parallel num_threads(num_threads)
             {
                 uchar * compr_kmer = new uchar[bytes_kmer];
@@ -404,7 +407,7 @@ map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
                     #pragma omp critical(get_input_range)
                     {                    
                         mystart = start;
-                        myend = end+work_unit_size;
+                        myend = end+curr_work_unit_size;
                         myend = myend>end?end:myend;
                         start = myend;                    
                     }// end critical

@@ -20,6 +20,8 @@
 
 #define MIN_BLOOM_CAPACITY 1024.
 
+const size_t DEF_WORK_UNIT_SIZE = 100000;
+
 int main(int argc,char** argv){
     if (argc<2){
         return usage();
@@ -199,6 +201,15 @@ bitvector::size_type get_size_in_bytes(bitvector::size_type k,bitvector::size_ty
 
 
 int main_create_many(int argc,char** argv){
+    
+    int Num_threads = 1;
+    #ifdef _OPENMP
+    omp_set_num_threads(Num_threads);   
+    #endif
+    size_t Work_unit_size = DEF_WORK_UNIT_SIZE;        
+    
+    long long sig;
+    
     int c;
 
     const char *seedstr=DEFAULT_SEED;
@@ -215,7 +226,7 @@ int main_create_many(int argc,char** argv){
     bool print_stats = false;
     bool shrink = false;
     
-    while ((c = getopt(argc, argv, "a:s:h:rF:m:e:n:tk")) >= 0) {
+    while ((c = getopt(argc, argv, "a:s:h:rF:m:e:n:ckt:u:")) >= 0) {
         switch (c) {
             case 'a':
                 as_B=atol(optarg);
@@ -244,11 +255,28 @@ int main_create_many(int argc,char** argv){
             case 'n':
                 include_bloom_filename = optarg;
                 break;                
-            case 't':
+            case 'c':
                 print_stats = true;
                 break;
             case 'k':
                 shrink = true;
+                break;
+            case 't' :
+                sig = atoll(optarg);
+                if (sig <= 0)
+                    errx(EX_USAGE, "can't use nonpositive thread count");
+                #ifdef _OPENMP
+                Num_threads = sig;
+                if (Num_threads > omp_get_num_procs())
+                    errx(EX_USAGE, "thread count exceeds number of processors");                
+                omp_set_num_threads(Num_threads);
+                #endif
+                break;
+            case 'u' :
+                sig = atoll(optarg);
+                if (sig <= 0)
+                    errx(EX_USAGE, "can't use nonpositive work unit size");
+                Work_unit_size = sig;
                 break;
             default:
                 return 1;
@@ -267,10 +295,12 @@ int main_create_many(int argc,char** argv){
         fprintf(stderr, "         -m <file.map> required map file mapping read names to taxonomic ids.\n");
         fprintf(stderr, "         -i BLM initial bloom filter to OR with (must have hash and size the same)\n");
         fprintf(stderr, "         -r     include also reverse complements of kmers\n");
-        fprintf(stderr, "         -t       print statistics of the final BF\n");
+        fprintf(stderr, "         -c     print statistics of the final BF\n");
         fprintf(stderr, "         -e BLM exclude k-mers present in BLM bloom filter\n");
         fprintf(stderr, "         -n BLM include only k-mers present in BLM bloom filter\n");
         fprintf(stderr, "         -k       shrink to optimal size before saving\n");
+        fprintf(stderr, "         -t #     Number of threads\n");
+        fprintf(stderr, "         -u #     Thread work unit size (in bp, def.=%lu)\n", DEF_WORK_UNIT_SIZE); 
         fprintf(stderr, "\n");        
         fprintf(stderr, "This program reads fasta format from standard input as default\n");
         fprintf(stderr, "(or from a file given after -F parameter).\n");
@@ -314,10 +344,11 @@ int main_create_many(int argc,char** argv){
         initial_bloom_filename.size()>0?&initial_bf:NULL,       
         exclude_bloom_filename.size()>0?&exclude_bf:NULL,
         include_bloom_filename.size()>0?&include_bf:NULL,
-                             as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r);
+                             as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r,
+                             Work_unit_size);
     
     //save all of them to directory
-    auto map_fun = [=]( std::pair<const std::string,Bloom>& p) {  
+    auto map_fun = [&]( std::pair<const std::string,Bloom>& p) {  
                     if (shrink){
                         double dens, est;        
                         estimate_bloom_size(p.second.array.size(),p.second.ones(),p.second.nh,dens,est);
@@ -810,8 +841,6 @@ void classify_read(std::string &name, std::string &seqs, Bloom & bf,
 }
 
 
-const size_t DEF_WORK_UNIT_SIZE = 100000;
-
 class OutputWorkUnit {
 public:
     uint64_t priority;
@@ -872,9 +901,9 @@ int main_query_and_split(int argc,char** argv){
                 if (sig <= 0)
                     errx(EX_USAGE, "can't use nonpositive thread count");
                 #ifdef _OPENMP
-                if (sig > omp_get_num_procs())
-                    errx(EX_USAGE, "thread count exceeds number of processors");
                 Num_threads = sig;
+                if (Num_threads > omp_get_num_procs())
+                    errx(EX_USAGE, "thread count exceeds number of processors");                
                 omp_set_num_threads(Num_threads);
                 #endif
                 break;

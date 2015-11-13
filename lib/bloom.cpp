@@ -369,7 +369,7 @@ map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
     assert(fp != Z_NULL);
     seq = kseq_init(fp);
     
-    #pragma omp parallel num_threads((max_threads+1)/2)
+    #pragma omp parallel num_threads(max_threads) //(max_threads+1)/2)
     {                
         std::vector<std::pair<Bloom &,std::string> > work_unit;
         

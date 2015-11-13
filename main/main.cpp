@@ -270,7 +270,7 @@ int main_create_many(int argc,char** argv){
                 if (Num_threads > omp_get_num_procs())
                     errx(EX_USAGE, "thread count exceeds number of processors");                
                 omp_set_num_threads(Num_threads);
-                omp_set_dynamic(Num_threads);
+                //omp_set_dynamic(Num_threads); //Doesn't work in parallel??
                 #endif
                 break;
             case 'u' :

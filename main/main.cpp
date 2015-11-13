@@ -341,7 +341,7 @@ int main_create_many(int argc,char** argv){
         include_bf.load(include_bloom_filename.c_str());
     }
 
-    std::map<std::string,Bloom> * taxon_bloom_map = bloom_create_many_blooms(
+    std::unordered_map<std::string,Bloom> * taxon_bloom_map = bloom_create_many_blooms(
         initial_bloom_filename.size()>0?&initial_bf:NULL,       
         exclude_bloom_filename.size()>0?&exclude_bf:NULL,
         include_bloom_filename.size()>0?&include_bf:NULL,

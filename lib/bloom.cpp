@@ -23,7 +23,7 @@
 using namespace std;
 
 //Seqid to taxon map
-map<string, string> ID_to_taxon_map;
+unordered_map<string, string> ID_to_taxon_map;
 
 #define _ILLEGAL_NEWICK_CHARS  std::string(":;\\(\\),\\[\\]\t\n\r=")
 #define _ILLEGAL_NEWICK_REPLACE std::string("_")
@@ -335,7 +335,7 @@ void read_ID_to_taxon_map(const string & ID_to_taxon_map_filename) {
 
 
 
-map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, 
+unordered_map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, 
                                              const Bloom * exclude_bf,
                                              const Bloom * include_bf,
                                              const coor as_b, const unsigned int nh, 
@@ -363,7 +363,7 @@ map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
     unsigned int bytes_kmer=compressed_kmer_size(weight);
     
     //Create taxon bloom filter map
-    map<string,Bloom> * taxon_bloom_map = new map<string,Bloom>();
+    unordered_map<string,Bloom> * taxon_bloom_map = new unordered_map<string,Bloom>();
     
     fp = gzopen(fn, "r");
     assert(fp != Z_NULL);

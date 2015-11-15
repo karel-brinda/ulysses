@@ -409,19 +409,19 @@ unordered_map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
             if (empty_workunit)
                 break;     
         
-            for (size_t j = 0; j < work_unit.size(); j++) {
-                Bloom & bf = work_unit[j].first;
-                const uchar *dna=(uchar*)work_unit[j].second.c_str();
+            for (size_t k = 0; k < work_unit.size(); k++) {
+                Bloom & bf = work_unit[k].first;
+                const uchar *dna=(uchar*)work_unit[k].second.c_str();
                 
                 long start = 0;
-                long end = work_unit[j].second.length()-span+1;
+                long end = work_unit[k].second.length()-span+1;
                 if (!(start<end))
                     continue;
                 long num_threads = (end-start+work_unit_size-1)/work_unit_size;
                 num_threads = num_threads>(long)max_threads?max_threads:num_threads;
                 //Enlarge work_unit_size so it's optimal
                 long curr_work_unit_size = (end-start+num_threads-1)/num_threads;
-                curr_work_unit_size = curr_work_unit_size<(long)work_unit_size ? work_unit_size:curr_work_unit_size;
+                //curr_work_unit_size = curr_work_unit_size<(long)work_unit_size ? work_unit_size:curr_work_unit_size;
                 #pragma omp parallel num_threads(num_threads)
                 {
                     uchar * compr_kmer = new uchar[bytes_kmer];
@@ -466,6 +466,7 @@ unordered_map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
                                 }
                                 if (do_set){
                                 for(unsigned int j=0;j<nh;j++){                    
+				    //#pragma omp atomic set inside external/.../dynamic_bitset.hpp source
                                     bf.array.set(hashes1[j] % bf.array.size(),true);
                                 }
                                 }

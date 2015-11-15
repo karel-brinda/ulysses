@@ -225,8 +225,9 @@ int main_create_many(int argc,char** argv){
     
     bool print_stats = false;
     bool shrink = false;
+    bool nested_threading = false;
     
-    while ((c = getopt(argc, argv, "a:s:h:rF:m:e:n:ckt:u:")) >= 0) {
+    while ((c = getopt(argc, argv, "a:s:h:rF:m:e:n:ckt:u:d")) >= 0) {
         switch (c) {
             case 'a':
                 as_B=atol(optarg);
@@ -270,9 +271,11 @@ int main_create_many(int argc,char** argv){
                 if (Num_threads > omp_get_num_procs())
                     errx(EX_USAGE, "thread count exceeds number of processors");                
                 omp_set_num_threads(Num_threads);
-                //omp_set_dynamic(Num_threads); //Doesn't work in parallel??
                 #endif
                 break;
+            case 'd':
+	    	nested_threading = true;
+	        break;
             case 'u' :
                 sig = atoll(optarg);
                 if (sig <= 0)
@@ -283,6 +286,12 @@ int main_create_many(int argc,char** argv){
                 return 1;
         }
     }
+    #ifdef _OPENMP
+    if (nested_threading && Num_threads>1){
+		omp_set_nested(1);
+                omp_set_dynamic(Num_threads); 
+    }
+    #endif
     
     if ((optind + 1 != argc)|| (!seedstr_correct(seedstr)) || 
 	Multi_fasta_filename.empty() || ID_to_taxon_map_filename.empty()) {
@@ -301,6 +310,7 @@ int main_create_many(int argc,char** argv){
         fprintf(stderr, "         -n BLM include only k-mers present in BLM bloom filter\n");
         fprintf(stderr, "         -k       shrink to optimal size before saving\n");
         fprintf(stderr, "         -t #     Number of threads\n");
+        fprintf(stderr, "         -d   Nested threading. Use if processing large genomes, rather than many small ones.\n");
         fprintf(stderr, "         -u #     Thread work unit size (in bp, def.=%lu)\n", DEF_WORK_UNIT_SIZE); 
         fprintf(stderr, "\n");        
         fprintf(stderr, "This program reads fasta format from standard input as default\n");

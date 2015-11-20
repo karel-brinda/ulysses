@@ -11,3 +11,11 @@ ulysses merge -i ../_output/query_split_found2.fa ../_output/query_split_notfoun
 
 ulysses merge ../_output/query_split_found3.fa ../_output/query_split_notfound3.fa > ../_output/merge3.fa
 
+ulysses merge -i ../_data/35268_notfound_inter.fa.tmp ../_data/35268_notfound_inter.fa.tmp > ../_output/merge4.fa
+
+dff=`diff ../_data/35268_notfound_inter.fa.tmp ../_output/merge4.fa | wc -l`
+if [ $dff -gt 0 ]; then
+    exit 1
+fi
+
+

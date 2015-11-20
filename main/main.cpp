@@ -1171,11 +1171,15 @@ int main_merge(int argc,char** argv){
         if (isread1 && isread2 && rnum1==rnum2) {
             std::string::iterator kmer_it1 = match1[2].first;
             std::string::iterator kmer_it2 = match2[2].first;
+            //std::cerr << "Kmer1 match: " << std::string(kmer_it1,match1[2].second)
+            //                             << std::endl;
+            //std::cerr << "Kmer2 match: " << std::string(kmer_it2,match2[2].second)
+            //                             << std::endl;
             bool one_found = false;
             if (intersection){
                 for(;kmer_it1!=match1[2].second;++kmer_it1,++kmer_it2){
                     *kmer_it1 = std::min(*kmer_it1,*kmer_it2);
-                    one_found = *kmer_it1=='1';
+                    one_found |= *kmer_it1=='1';                    
                 }
             } else {
                 for(;kmer_it1!=match1[2].second;++kmer_it1,++kmer_it2){

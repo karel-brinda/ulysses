@@ -15,6 +15,9 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 
+#include <boost/iostreams/device/mapped_file.hpp>
+#include <boost/interprocess/streams/bufferstream.hpp>
+
 #include <stdlib.h>
 
 #include "ulysses/bloom.hpp"
@@ -163,8 +166,13 @@ int Bloom::save(const char * filename) const {
 int Bloom::load(const char * filename){
     DF1;
     // open the archive
-    std::ifstream ifs(filename);
-    boost::archive::binary_iarchive ia(ifs);
+    //std::ifstream ifs(filename);
+    //boost::archive::binary_iarchive ia(ifs);
+    const std::string fname_str(filename);
+    boost::iostreams::mapped_file_source mfs(fname_str);    
+    boost::interprocess::ibufferstream ibs(mfs.data(),mfs.size());
+    boost::archive::binary_iarchive ia(dynamic_cast<std::istream&>(ibs));
+    
     // restore from the archive
     ia >> (*this);
     DF2;

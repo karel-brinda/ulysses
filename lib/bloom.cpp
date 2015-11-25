@@ -175,6 +175,26 @@ int Bloom::load(const char * filename){
     
     // restore from the archive
     ia >> (*this);
+    //ar & program_version_tag & nh & seed & array;
+    
+    /*
+    //Find offset:
+    const char * end = mfs.data()+mfs.size()-((array.size()/8)>>3);
+    for (const char * p=mfs.data();p<end;++p){
+        bool is_ok = true;
+        for(size_t bn=0;bn<array.size()/8;++bn)
+            is_ok &= !(bool((*(p+(bn>>3)))&(1<<(bn&7))) ^ array.test(bn));
+        if (is_ok){
+            std::cerr<<"Found correct offset:"<< (p-mfs.data()) <<std::endl;
+            if ((p-mfs.data())>=719)
+                break;
+        }            
+    }
+    //Found offset = 719 
+    
+    //ar & program_version_tag & nh & seed & array;
+    std::cerr<<"Computed offset is:"<< (sizeof(program_version_tag)+sizeof(nh)+sizeof(seed)+sizeof(std::size_t)+sizeof(boost::serialization::collection_size_type))<<std::endl;
+    */
     DF2;
     return 0;
 }

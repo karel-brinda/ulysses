@@ -401,7 +401,7 @@ unordered_map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
                         total_nt += work_unit.back().second.length();                                                
                     }
                     catch (const std::out_of_range& oor) {
-                        fprintf(stderr,"Sequence not mapped to taxid. Omitting.\n");
+                        ;//fprintf(stderr,"Sequence not mapped to taxid. Omitting.\n");
                     }       
                     }
                 }

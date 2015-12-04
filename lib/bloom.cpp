@@ -384,7 +384,6 @@ unordered_map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
                     if (! (l>=0))
                         break;
                     empty_workunit = false;
-                    if(l >= span){
                     try {
                         string & taxid = ID_to_taxon_map.at(boost::regex_replace(std::string(seq->name.s),re_illegal_newick,_ILLEGAL_NEWICK_REPLACE));
                     
@@ -397,12 +396,13 @@ unordered_map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
                             else
                                 bf = *initial_bf;
                         }                        
-                        work_unit.emplace_back(bf, seq->seq.s);                    
-                        total_nt += work_unit.back().second.length();                                                
+                        if(l >= span){
+                            work_unit.emplace_back(bf, seq->seq.s);
+                            total_nt += work_unit.back().second.length();
+                        }
                     }
                     catch (const std::out_of_range& oor) {
                         ;//fprintf(stderr,"Sequence not mapped to taxid. Omitting.\n");
-                    }       
                     }
                 }
             } // end critical            

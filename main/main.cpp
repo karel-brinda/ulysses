@@ -8,11 +8,19 @@
 
 #include <vector>
 #include <getopt.h>
+#include <err.h>
+#include <omp.h>
+
+#include <queue>
+#include <utility>
+
 #include "main.hpp"
 
 #include <boost/regex.hpp>
 
 #define MIN_BLOOM_CAPACITY 1024.
+
+const size_t DEF_WORK_UNIT_SIZE = 100000;
 
 int main(int argc,char** argv){
     if (argc<2){
@@ -48,7 +56,10 @@ int main(int argc,char** argv){
     }
     else if (strcmp(argv[1], "query_and_split") == 0) {
         return main_query_and_split(argc-1, argv+1);
-    }    
+    }
+    else if (strcmp(argv[1], "merge") == 0) {
+        return main_merge(argc-1, argv+1);
+    }
     else {
         fprintf(stderr, "Unrecognized command '%s'\n", argv[1]);
         return 1;
@@ -71,6 +82,8 @@ int usage(){
     fprintf(stderr, "         hamming       print Hamming distance matrix for given Bloom filters\n");
     fprintf(stderr, "         symmdiffmat   print set symmetric distance matrix for given Bloom filters\n");
     fprintf(stderr, "         query         query a Bloom filter\n");
+    fprintf(stderr, "         query_and_split    query a Bloom filter and split output k-mer wise to classified/nonclassified\n");
+    fprintf(stderr, "         merge         merge two fasta files k-mer wise, with readnames of the format >read_name|rnum|5|ind|011001101001|\n");
     fprintf(stderr, "\n");
     return 1;
 }
@@ -188,6 +201,15 @@ bitvector::size_type get_size_in_bytes(bitvector::size_type k,bitvector::size_ty
 
 
 int main_create_many(int argc,char** argv){
+    
+    int Num_threads = 1;
+    #ifdef _OPENMP
+    omp_set_num_threads(Num_threads);   
+    #endif
+    size_t Work_unit_size = DEF_WORK_UNIT_SIZE;        
+    
+    long long sig;
+    
     int c;
 
     const char *seedstr=DEFAULT_SEED;
@@ -203,8 +225,9 @@ int main_create_many(int argc,char** argv){
     
     bool print_stats = false;
     bool shrink = false;
+    bool nested_threading = false;
     
-    while ((c = getopt(argc, argv, "a:s:h:rF:m:e:n:tk")) >= 0) {
+    while ((c = getopt(argc, argv, "a:s:h:rF:m:e:n:ckt:u:d")) >= 0) {
         switch (c) {
             case 'a':
                 as_B=atol(optarg);
@@ -233,16 +256,42 @@ int main_create_many(int argc,char** argv){
             case 'n':
                 include_bloom_filename = optarg;
                 break;                
-            case 't':
+            case 'c':
                 print_stats = true;
                 break;
             case 'k':
                 shrink = true;
                 break;
+            case 't' :
+                sig = atoll(optarg);
+                if (sig <= 0)
+                    errx(EX_USAGE, "can't use nonpositive thread count");
+                #ifdef _OPENMP
+                Num_threads = sig;
+                if (Num_threads > omp_get_num_procs())
+                    errx(EX_USAGE, "thread count exceeds number of processors");                
+                omp_set_num_threads(Num_threads);
+                #endif
+                break;
+            case 'd':
+	    	nested_threading = true;
+	        break;
+            case 'u' :
+                sig = atoll(optarg);
+                if (sig <= 0)
+                    errx(EX_USAGE, "can't use nonpositive work unit size");
+                Work_unit_size = sig;
+                break;
             default:
                 return 1;
         }
     }
+    #ifdef _OPENMP
+    if (nested_threading && Num_threads>1){
+		omp_set_nested(1);
+                omp_set_dynamic(Num_threads); 
+    }
+    #endif
     
     if ((optind + 1 != argc)|| (!seedstr_correct(seedstr)) || 
 	Multi_fasta_filename.empty() || ID_to_taxon_map_filename.empty()) {
@@ -256,10 +305,13 @@ int main_create_many(int argc,char** argv){
         fprintf(stderr, "         -m <file.map> required map file mapping read names to taxonomic ids.\n");
         fprintf(stderr, "         -i BLM initial bloom filter to OR with (must have hash and size the same)\n");
         fprintf(stderr, "         -r     include also reverse complements of kmers\n");
-        fprintf(stderr, "         -t       print statistics of the final BF\n");
+        fprintf(stderr, "         -c     print statistics of the final BF\n");
         fprintf(stderr, "         -e BLM exclude k-mers present in BLM bloom filter\n");
         fprintf(stderr, "         -n BLM include only k-mers present in BLM bloom filter\n");
         fprintf(stderr, "         -k       shrink to optimal size before saving\n");
+        fprintf(stderr, "         -t #     Number of threads\n");
+        fprintf(stderr, "         -d   Nested threading. Use if processing large genomes, rather than many small ones.\n");
+        fprintf(stderr, "         -u #     Thread work unit size (in bp, def.=%lu)\n", DEF_WORK_UNIT_SIZE); 
         fprintf(stderr, "\n");        
         fprintf(stderr, "This program reads fasta format from standard input as default\n");
         fprintf(stderr, "(or from a file given after -F parameter).\n");
@@ -283,30 +335,32 @@ int main_create_many(int argc,char** argv){
     read_ID_to_taxon_map(ID_to_taxon_map_filename);
     fprintf(stderr, "DONE.\n");
     
-    Bloom initial_bf(0,0,nullptr);
+    Bloom initial_bf(0,0,NULL);
     if (initial_bloom_filename.size()>0){
         initial_bf.load(initial_bloom_filename.c_str());
         assert((initial_bf.nh==(bitvector::size_type)nh)&&(initial_bf.array.size()==(bitvector::size_type)(as_B*8)));
     }
     
-    Bloom exclude_bf(0,0,nullptr);
+    Bloom exclude_bf(0,0,NULL);
     if (exclude_bloom_filename.size()>0){
         exclude_bf.load(exclude_bloom_filename.c_str());
     }
 
-    Bloom include_bf(0,0,nullptr);
+    Bloom include_bf(0,0,NULL);
     if (include_bloom_filename.size()>0){
         include_bf.load(include_bloom_filename.c_str());
     }
 
-    std::map<std::string,Bloom> * taxon_bloom_map = bloom_create_many_blooms(
-        initial_bloom_filename.size()>0?&initial_bf:nullptr,       
-        exclude_bloom_filename.size()>0?&exclude_bf:nullptr,
-        include_bloom_filename.size()>0?&include_bf:nullptr,
-                             as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r);
+    std::unordered_map<std::string,Bloom> * taxon_bloom_map = bloom_create_many_blooms(
+        initial_bloom_filename.size()>0?&initial_bf:NULL,       
+        exclude_bloom_filename.size()>0?&exclude_bf:NULL,
+        include_bloom_filename.size()>0?&include_bf:NULL,
+                             as_B*8,nh,seedstr,Multi_fasta_filename.c_str(),r,
+                             Num_threads,
+                             Work_unit_size);
     
     //save all of them to directory
-    auto map_fun = [=]( std::pair<const std::string,Bloom>& p) {  
+    auto map_fun = [&]( std::pair<const std::string,Bloom>& p) {  
                     if (shrink){
                         double dens, est;        
                         estimate_bloom_size(p.second.array.size(),p.second.ones(),p.second.nh,dens,est);
@@ -721,19 +775,156 @@ int main_query(int argc,char** argv){
     return 0;
 }
 
+#define RNUM_IND_REGEX "\\|rnum\\|([0-9]+)\\|ind\\|([01]+)\\|"
+
+
+void classify_read(std::string &name, std::string &seqs, Bloom & bf, 
+                   int d, unsigned int bytes_compr_kmer,
+                   boost::regex & expression,
+                   uint64_t & rnum,
+                   std::ostringstream &class_oss,
+                   std::ostringstream &unclass_oss){
+
+    std::string::iterator start, end;    
+    boost::match_results<std::string::iterator> match;
+
+    const char * seqs_char = seqs.c_str();
+    
+    start = name.begin();
+    end = name.end();            
+    boost::regex_search(start,end, match, expression, boost::match_default);
+    std::string::iterator kmer_it;
+    if (match[0].matched){
+        //std::string s_rnum(match[1].first,match[1].second);            
+        //rnum = std::stol(s_rnum);
+        kmer_it = match[2].first;
+    } else {
+        if ((long)seqs.length()-bf.seed.span+1<=0)  {
+            //Skip read if its too short, but preserve numbering
+            ++rnum;
+            return;
+        }
+        std::string ones(seqs.length()-bf.seed.span+1,'1');
+        name += "|rnum|"+std::to_string(rnum)+"|ind|"+ones+"|";
+        start = name.begin()+ (end-start);
+        end = name.end();
+        boost::regex_search(start,end, match, expression, boost::match_default);
+        kmer_it = match[2].first;
+    }
+    ++rnum;
+    std::string name_notfound(name);
+    std::string::iterator kmer_it_nf = name_notfound.begin() + (kmer_it - name.begin());
+    bool kmer_found = false;
+    bool kmer_notfound = false;
+    for (long i=0;i<((long)seqs.length()-bf.seed.span+1);i++){
+        if (*kmer_it=='1'){
+            bool hit = false;
+            bool nokmer = false;
+            for (int dir=0;dir<=d;dir++){
+                int res=bf.query((const uchar*)&(seqs_char[i]), dir, bytes_compr_kmer);
+                if (res==-1) {
+                    nokmer = true;
+                    //break;
+                }
+                hit|=(res>0);
+            }
+            if (nokmer) {
+                *kmer_it = '0';
+                *kmer_it_nf = '0';                        
+            } else if (hit){
+                *kmer_it = '1'; kmer_found = true;
+                *kmer_it_nf = '0';                                            
+            } else { //no hit
+                *kmer_it = '0';
+                *kmer_it_nf = '1'; kmer_notfound = true;                        
+            }                    
+        }
+        ++kmer_it;
+        ++kmer_it_nf;
+    }
+    if (kmer_found){
+        class_oss << ">" << name << "\n" 
+                  << seqs << "\n";
+    }
+    if (kmer_notfound){
+        unclass_oss << ">" << name_notfound << "\n" 
+                  << seqs << "\n";
+    }                    
+}
+
+
+class OutputWorkUnit {
+public:
+    uint64_t priority;
+    std::string classified;
+    std::string unclassified;
+    
+    OutputWorkUnit(uint64_t p, std::string &&cs, std::string &&ucs):
+            priority(p),classified(std::move(cs)),unclassified(std::move(ucs))
+            {};
+    ~OutputWorkUnit(){};
+    
+    OutputWorkUnit(const OutputWorkUnit& other) = delete;
+   /*:priority( other.priority ),
+      classified( other.classified ),
+      unclassified( other.unclassified ){} */
+    
+    OutputWorkUnit(OutputWorkUnit && other)
+     :priority( std::move(other.priority) ),
+      classified( std::move(other.classified)),
+      unclassified( std::move(other.unclassified)){}     
+    
+    OutputWorkUnit& operator=(OutputWorkUnit&& other){
+        if (this != &other) {
+            std::swap(priority,other.priority);
+            std::swap(classified,other.classified);
+            std::swap(unclassified,other.unclassified);
+        }
+        return *this;
+    }
+     
+    OutputWorkUnit& operator=(const OutputWorkUnit&) = delete; // no implementation 
+    
+    bool operator>(const OutputWorkUnit & ou) const{
+        return priority>ou.priority;
+    };
+};
+
 
 int main_query_and_split(int argc,char** argv){
     
-    int c;
+    int Num_threads = 1;
+    #ifdef _OPENMP
+    omp_set_num_threads(Num_threads);   
+    #endif
+    size_t Work_unit_size = DEF_WORK_UNIT_SIZE;        
     
-    //int k=0;
+    int c;    
     int d=0;
+    long long sig;
     
-    while ((c = getopt(argc, argv, "r")) >= 0) {
+    while ((c = getopt(argc, argv, "rt:u:")) >= 0) {
         switch (c) {
             case 'r':
                 d=1;
                 break;
+            case 't' :
+                sig = atoll(optarg);
+                if (sig <= 0)
+                    errx(EX_USAGE, "can't use nonpositive thread count");
+                #ifdef _OPENMP
+                Num_threads = sig;
+                if (Num_threads > omp_get_num_procs())
+                    errx(EX_USAGE, "thread count exceeds number of processors");                
+                omp_set_num_threads(Num_threads);
+                #endif
+                break;
+            case 'u' :
+                sig = atoll(optarg);
+                if (sig <= 0)
+                    errx(EX_USAGE, "can't use nonpositive work unit size");
+                Work_unit_size = sig;
+                break;            
             default:
                 return 1;
         }
@@ -744,6 +935,8 @@ int main_query_and_split(int argc,char** argv){
         fprintf(stderr, "Usage:   ulysses query_and_split [options] <in.bf> <in.fa> <out_found.fa> <out_notfound.fa>\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "Options: -r       test also reverse directions of reads\n");
+        fprintf(stderr, "         -t #     Number of threads\n");
+       fprintf(stderr,  "         -u #     Thread work unit size (in bp, def.=%lu)\n", DEF_WORK_UNIT_SIZE); 
         fprintf(stderr, "\n");
         fprintf(stderr, "This command produces two fasta files with additional strings in read names\n");
         fprintf(stderr, "of the format: >read_name|rnum|5|ind|011001101001|\n");
@@ -763,9 +956,7 @@ int main_query_and_split(int argc,char** argv){
     
     gzFile fp;
     kseq_t *seq;
-    int l;
-        
-    
+                
     fp = gzopen(argv[optind+1], "r");
     assert(fp != Z_NULL);
     seq = kseq_init(fp);
@@ -780,81 +971,260 @@ int main_query_and_split(int argc,char** argv){
     }
         
     unsigned int bytes_compr_kmer=compressed_kmer_size(bf.seed.weight);
-    
-    unsigned int rnum = 0;
-    while ((l = kseq_read(seq)) >= 0) { // STEP 4: read sequence
         
-            //printf("%s\t%s\t",seq->name.s, dir ? "r" : "f");
-            std::string name(seq->name.s);            
-            //std::string name(">fdsfa|ind|010101010100101|");
-            std::string::iterator start, end;
-            start = name.begin();
-            end = name.end();            
-            boost::regex expression("\\|rnum\\|([0-9]+)\\|ind\\|([01]+)\\|");
-            boost::match_results<std::string::iterator> match;
-            boost::match_flag_type flags = boost::match_default;
-            boost::regex_search(start,end, match, expression, flags);
-            std::string::iterator kmer_it;
-            if (match[0].matched){
-                kmer_it = match[2].first;
-            } else {
-                std::string zeros(l-bf.seed.span+1,'1');
-                name += "|rnum|"+std::to_string(rnum)+"|ind|"+zeros+"|";
-                start = name.begin()+ (end-start);
-                end = name.end();
-                boost::regex_search(start,end, match, expression, flags);
-                kmer_it = match[2].first;
-            }
-            std::string name_notfound(name);
-            std::string::iterator kmer_it_nf = name_notfound.begin() + (kmer_it - name.begin());
-            bool kmer_found = false;
-            bool kmer_notfound = false;
-            for (int i=0;i<l-bf.seed.span+1;i++){
-                if (*kmer_it=='1'){
-                    bool hit = false;
-                    bool nokmer = false;
-                    for (int dir=0;dir<=d;dir++){
-                        int res=bf.query((uchar*)&(seq->seq.s[i]), dir, bytes_compr_kmer);
-                        if (res==-1) {
-                            nokmer = true;
-                            //break;
-                        }
-                        hit|=(res>0);
-                    }
-                    if (nokmer) {
-                        *kmer_it = '0';
-                        *kmer_it_nf = '0';                        
-                    } else if (hit){
-                        *kmer_it = '1'; kmer_found = true;
-                        *kmer_it_nf = '0';                                            
-                    } else { //no hit
-                        *kmer_it = '0';
-                        *kmer_it_nf = '1'; kmer_notfound = true;                        
-                    }                    
+    long l = 0;
+    uint64_t total_workunits = 0;
+    uint64_t workunit_num_output_now = 0;
+    uint64_t total_sequences = 0;
+    uint64_t total_sequences_processed = 0;
+    uint64_t total_bases = 0;    
+    
+    std::priority_queue< OutputWorkUnit, 
+                         std::vector< OutputWorkUnit >, 
+                         std::greater< OutputWorkUnit > > out_pq;
+    uint64_t recent_max_pq = 0;
+                         
+    boost::regex expression(RNUM_IND_REGEX);
+    
+    #pragma omp parallel
+    {
+        uint64_t rnum;
+        uint64_t workunit_num;
+        std::ostringstream classified_output_ss, unclassified_output_ss;
+        std::vector<std::pair<std::string,std::string> > work_unit;
+        
+        while (l>=0) { //while reader is valid, non-critical check
+            work_unit.clear();
+            size_t total_nt = 0;
+            bool empty_workunit = true;
+            #pragma omp critical(get_input)
+            {
+                rnum = total_sequences; // rewrite reads numbering
+                workunit_num = total_workunits;
+                while (total_nt < Work_unit_size) {
+                    l = kseq_read(seq);
+                    if (! (l>=0))
+                        break;
+                    empty_workunit = false;
+                    work_unit.emplace_back(seq->name.s, seq->seq.s);                    
+                    total_nt += work_unit.back().second.length();
+                    ++total_sequences;
                 }
-                ++kmer_it;
-                ++kmer_it_nf;
-            }
-            if (kmer_found){
-                fprintf(ffp,">");
-                fprintf(ffp,name.c_str());
-                fprintf(ffp,"\n");
-                fprintf(ffp,seq->seq.s);
-                fprintf(ffp,"\n");
-            }
-            if (kmer_notfound){
-                fprintf(nffp,">");
-                fprintf(nffp,name_notfound.c_str());
-                fprintf(nffp,"\n");
-                fprintf(nffp,seq->seq.s);
-                fprintf(nffp,"\n");
-            }
-            ++rnum;
-    }
+                if (!empty_workunit)
+                    ++total_workunits;
+            } // end critical
+            
+            if (empty_workunit)
+                break;
+            
+            classified_output_ss.str("");
+            unclassified_output_ss.str("");            
+            for (size_t j = 0; j < work_unit.size(); j++)
+                    classify_read(work_unit[j].first, work_unit[j].second, 
+                                  bf, d, bytes_compr_kmer,
+                                  expression, rnum,
+                                  classified_output_ss, unclassified_output_ss);
+                    
+            #pragma omp critical(write_output)
+            {
+                total_sequences_processed += work_unit.size();
+                total_bases += total_nt;
+                std::cerr << "\rProcessed " << total_sequences_processed << " sequences (" << total_bases << " bp) ...";
+
+#ifndef NDEBUG                
+                if (!out_pq.empty()) {                    
+                    if ((recent_max_pq+10)<out_pq.size()){
+                        recent_max_pq=out_pq.size();
+                        std::cerr << "Output queue of size " << out_pq.size() <<"\n";
+                    }
+                }
+#endif
+                if (workunit_num==workunit_num_output_now) {
+                    fprintf(ffp, classified_output_ss.str().c_str());
+                    fprintf(nffp, unclassified_output_ss.str().c_str());
+                    ++workunit_num_output_now;
+                                        
+                    while (!out_pq.empty() && 
+                            out_pq.top().priority==workunit_num_output_now) {                                        
+                        fprintf(ffp, out_pq.top().classified.c_str());
+                        fprintf(nffp,out_pq.top().unclassified.c_str()); 
+                        out_pq.pop();
+                        ++workunit_num_output_now;
+                    }
+                } else {
+                    out_pq.emplace(workunit_num, classified_output_ss.str(),
+                                               unclassified_output_ss.str());                    
+                }                
+            } //end critical
+        }
+    } //end parallel section
+    
+    assert(out_pq.empty());
+    //fprintf(stderr,"Last kseq_read:%d",kseq_read(seq));
     kseq_destroy(seq);
     gzclose(fp);
     fclose(ffp);
     fclose(nffp);
+    
+    return 0;
+}
+
+
+
+
+int main_merge(int argc,char** argv){
+    
+    int c;
+    
+    //int k=0;
+    bool intersection=false;
+    
+    std::string output_file = "/dev/fd/1"; //default use stdout
+    
+    while ((c = getopt(argc, argv, "iF:")) >= 0) {
+        switch (c) {
+            case 'i':
+                intersection=true;
+                break;
+            case 'F' :
+                output_file = optarg;
+                break;
+            default:
+                return 1;
+        }
+    }
+    
+    if ((optind + 2 != argc)||output_file.empty()) {
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Usage:   ulysses merge [options] <in1.fa> <in2.fa>\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Options: -i    output only intersection of two inputs\n");
+        fprintf(stderr, "Options: -F <out.fa>   output to file (default stdout)\n");
+        fprintf(stderr, "\n");     
+        fprintf(stderr, "This option merges two fasta files with read names\n");
+        fprintf(stderr, "of the format: >read_name|rnum|5|ind|011001101001|\n");
+        fprintf(stderr, "The input files are assumed to be sorted by 'rnum'.\n");     
+        fprintf(stderr, "The output is a fasta file sorted by rnum, where 'ind' bit flags\n");     
+        fprintf(stderr, "in reads with the same 'rnum' are merged by OR-ing bits.\n");     
+        fprintf(stderr, "When -i flag is used only common reads are output, with their bitflags\n");     
+        fprintf(stderr, "merged by AND-ing bits.\n");     
+        fprintf(stderr, "\n");     
+        return 1;
+    }
+    
+    gzFile fp1, fp2;
+    kseq_t *seq1, *seq2;
+    int l1, l2;
+            
+    fp1 = gzopen(argv[optind], "r");
+    assert(fp1 != Z_NULL);
+    seq1 = kseq_init(fp1);
+    
+    fp2 = gzopen(argv[optind+1], "r");
+    assert(fp2 != Z_NULL);
+    seq2 = kseq_init(fp2);
+    
+    FILE *outf;
+    outf = fopen(output_file.c_str(), "w");    
+    
+    if (outf == NULL){ 
+        fprintf(stderr, "Can't open output file for writing!\n");
+        exit(1);
+    }
+            
+    //unsigned int rnum = 0;
+    
+        
+    std::string::iterator start, end;
+    boost::regex expression(RNUM_IND_REGEX);
+    boost::match_results<std::string::iterator> match1, match2;
+    boost::match_flag_type flags = boost::match_default;        
+    
+    std::string name1,name2;
+        
+    l1 = kseq_read(seq1);
+    l2 = kseq_read(seq2);
+    long rnum1=-1,  rnum2=-1;
+    bool isread1=false, isread2=false;
+    do {                 
+        if (l1>=0 && !isread1) {
+            name1 = std::string(seq1->name.s);                        
+            start = name1.begin();
+            end = name1.end();            
+            boost::regex_search(start,end, match1, expression, flags);     
+            assert(match1[0].matched);
+            std::string s_rnum(match1[1].first,match1[1].second);            
+            rnum1 = std::stol(s_rnum);
+            isread1 = true;
+        }
+        if (l2>=0 && !isread2) {
+            name2 = std::string(seq2->name.s);
+            start = name2.begin();
+            end = name2.end();            
+            boost::regex_search(start,end, match2, expression, flags);     
+            assert(match2[0].matched);
+            std::string s_rnum(match2[1].first,match2[1].second);            
+            rnum2 = std::stol(s_rnum);
+            isread2 = true;
+        }
+        
+        if (isread1 && isread2 && rnum1==rnum2) {
+            std::string::iterator kmer_it1 = match1[2].first;
+            std::string::iterator kmer_it2 = match2[2].first;
+            //std::cerr << "Kmer1 match: " << std::string(kmer_it1,match1[2].second)
+            //                             << std::endl;
+            //std::cerr << "Kmer2 match: " << std::string(kmer_it2,match2[2].second)
+            //                             << std::endl;
+            bool one_found = false;
+            if (intersection){
+                for(;kmer_it1!=match1[2].second;++kmer_it1,++kmer_it2){
+                    *kmer_it1 = std::min(*kmer_it1,*kmer_it2);
+                    one_found |= *kmer_it1=='1';                    
+                }
+            } else {
+                for(;kmer_it1!=match1[2].second;++kmer_it1,++kmer_it2){
+                    *kmer_it1 = std::max(*kmer_it1,*kmer_it2);
+                }
+            }
+            assert(kmer_it2==match2[2].second);
+            
+            if (!intersection || one_found){
+              fprintf(outf,">");
+              fprintf(outf,name1.c_str());
+              fprintf(outf,"\n");
+              fprintf(outf,seq1->seq.s);
+              fprintf(outf,"\n");
+            }
+            
+            l1 = kseq_read(seq1); isread1 = false;
+            l2 = kseq_read(seq2); isread2 = false;       
+        } else        
+        if (isread1 && (!isread2 || rnum1<rnum2)) {
+            if (!intersection) {
+                fprintf(outf,">");
+                fprintf(outf,name1.c_str());
+                fprintf(outf,"\n");
+                fprintf(outf,seq1->seq.s);
+                fprintf(outf,"\n");
+            }
+            l1 = kseq_read(seq1); isread1 = false;            
+        } else
+        if (isread2 && (!isread1 || rnum1>rnum2)) {
+            if (!intersection) {
+                fprintf(outf,">");
+                fprintf(outf,name2.c_str());
+                fprintf(outf,"\n");
+                fprintf(outf,seq2->seq.s);
+                fprintf(outf,"\n");
+            }
+            l2 = kseq_read(seq2); isread2 = false;       
+        }       
+       
+    } while ((l1>=0 && l2>=0) || (!intersection && (l1>=0 || l2>=0) ) );    
+    
+    kseq_destroy(seq1);kseq_destroy(seq2);
+    gzclose(fp1);gzclose(fp2);
+    fclose(outf);
     
     return 0;
 }

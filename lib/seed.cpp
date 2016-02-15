@@ -17,10 +17,10 @@ Seed& Seed::operator=(const Seed &rhs){
     this->weight=rhs.weight;
     this->span=rhs.span;
 
-    strcpy(this->seedstr,rhs.seedstr);
+    memcpy(this->seedstr,rhs.seedstr,sizeof(*(this->seedstr))*MAX_SEED_SPAN);
 
-    memcpy(&(this->shape[0]), rhs.shape[0], MAX_SEED_SPAN);
-    memcpy(&(this->shape[1]), rhs.shape[1], MAX_SEED_SPAN);    
+    memcpy(this->shape[0], rhs.shape[0], sizeof(*(this->shape[0]))*MAX_SEED_SPAN);
+    memcpy(this->shape[1], rhs.shape[1], sizeof(*(this->shape[1]))*MAX_SEED_SPAN);    
 
     return *this;
 }

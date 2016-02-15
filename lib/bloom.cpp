@@ -15,13 +15,15 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 
+#include <stdlib.h>
+
 #include "ulysses/bloom.hpp"
 #include "ulysses/kmer.hpp"
 
 using namespace std;
 
 //Seqid to taxon map
-map<string, string> ID_to_taxon_map;
+unordered_map<string, string> ID_to_taxon_map;
 
 #define _ILLEGAL_NEWICK_CHARS  std::string(":;\\(\\),\\[\\]\t\n\r=")
 #define _ILLEGAL_NEWICK_REPLACE std::string("_")
@@ -208,12 +210,18 @@ bitvector::size_type Bloom::ones() const {
 int Bloom::query(const uchar *gstr, int direction, unsigned int bytes_compr_kmer) const {
     //DF1;
     
+    //uchar * compr_kmer = new uchar[bytes_compr_kmer];
+    //uint64_t * hashes1 = new uint64_t[nh+1];
+    //Instead of the above: GCC extension: Variable length arrays
+    //uchar compr_kmer[bytes_compr_kmer];
+    //uint64_t hashes1[nh+1];    
+    
+    uchar * compr_kmer = (uchar*) alloca(bytes_compr_kmer*sizeof(uchar));
+    uint64_t * hashes1 = (uint64_t*) alloca((nh+1)*sizeof(uint64_t));
+    
     int span = this->seed.span;
     assert(span>0);    
-    coor nh = this->nh;    
-    
-    uchar * compr_kmer = new uchar[bytes_compr_kmer];
-    uint64_t * hashes1 = new uint64_t[nh+1];
+    coor nh = this->nh;        
             
     if(compress_kmer(gstr,&(this->seed),bytes_compr_kmer,compr_kmer,direction)!=0){
         return -1;
@@ -221,13 +229,10 @@ int Bloom::query(const uchar *gstr, int direction, unsigned int bytes_compr_kmer
     compute_hashes(compr_kmer, bytes_compr_kmer, hashes1, nh);
     
     for(int j=0;j<nh;j++){            
-    if (!this->array.test(hashes1[j] % this->array.size())){
+        if (!this->array.test(hashes1[j] % this->array.size())){
             return 0;
         }
     }
-    
-    delete [] compr_kmer;
-    delete [] hashes1;
     
     //DF2;        
     return 1;
@@ -330,22 +335,24 @@ void read_ID_to_taxon_map(const string & ID_to_taxon_map_filename) {
 
 
 
-map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, 
+unordered_map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf, 
                                              const Bloom * exclude_bf,
                                              const Bloom * include_bf,
-                                             coor as_b, unsigned int nh, 
-                                             const char *seedstr, const char *fn, int both_directions){
+                                             const coor as_b, const unsigned int nh, 
+                                             const char *seedstr, const char *fn, const int both_directions,
+                                             const size_t max_threads,
+                                             const size_t work_unit_size){
     DF1;
     
     gzFile fp;
     kseq_t *seq;
-    int l;
+    long l;
     
     unsigned int min_nh=nh, min_inc_nh=nh;
-    if (exclude_bf!=nullptr) {
+    if (exclude_bf!=NULL) {
         min_nh=exclude_bf->nh<nh?exclude_bf->nh:nh;
     }
-    if (include_bf!=nullptr) {
+    if (include_bf!=NULL) {
         min_inc_nh=include_bf->nh<nh?include_bf->nh:nh;
     }
         
@@ -355,81 +362,127 @@ map<string,Bloom> * bloom_create_many_blooms(const Bloom * initial_bf,
     int weight = seed.weight;
     unsigned int bytes_kmer=compressed_kmer_size(weight);
     
-    uchar * compr_kmer = new uchar[bytes_kmer];
-    uint64_t * hashes1 = new uint64_t[nh+1];        
-    //string taxid;
-    
     //Create taxon bloom filter map
-    map<string,Bloom> * taxon_bloom_map = new map<string,Bloom>();
+    unordered_map<string,Bloom> * taxon_bloom_map = new unordered_map<string,Bloom>();
     
     fp = gzopen(fn, "r");
     assert(fp != Z_NULL);
     seq = kseq_init(fp);
     
-    while ((l = kseq_read(seq)) >= 0) { // STEP 4: read sequence
-        //fprintf(stderr,"processing: %s\n", seq->name.s);
+    #pragma omp parallel num_threads(max_threads) //(max_threads+1)/2)
+    {                
+        std::vector<std::pair<Bloom &,std::string> > work_unit;
         
-        if(l >= span){
-        try {
-           string & taxid = ID_to_taxon_map.at(boost::regex_replace(std::string(seq->name.s),re_illegal_newick,_ILLEGAL_NEWICK_REPLACE));
-           
-            //Return already used bloom, or a fresh initialized to 0	            
-            Bloom & bf = (*taxon_bloom_map)[taxid];	
-            
-            if (bf.array.size()<=0)  {//This is a new bf, not initialized yet
-                if (initial_bf==nullptr)
-                    bf.init(as_b, nh, seedstr);
-                else
-                    bf = *initial_bf;
-            }
-            
-            const uchar *dna=(uchar*)seq->seq.s;
+        while (l>=0) { //while reader is valid, non-critical check
+            work_unit.clear();
+            size_t total_nt = 0;
+            bool empty_workunit = true;
+            #pragma omp critical(create_many_get_input)
+            {
+                while (total_nt < 4*work_unit_size) {
+                    l = kseq_read(seq);
+                    if (! (l>=0))
+                        break;
+                    empty_workunit = false;
+                    try {
+                        string & taxid = ID_to_taxon_map.at(boost::regex_replace(std::string(seq->name.s),re_illegal_newick,_ILLEGAL_NEWICK_REPLACE));
+                    
+                        //Return already used bloom, or a fresh initialized to 0	            
+                        Bloom & bf = (*taxon_bloom_map)[taxid];	
                         
-            for (int i=0;i<l-span+1;i++){
-                for(int direction=0;direction<=both_directions;direction++){
-                    
-                    if(compress_kmer(&dna[i],&bf.seed,bytes_kmer,compr_kmer,direction)!=0){
-                        continue;
+                        if (bf.array.size()<=0)  {//This is a new bf, not initialized yet
+                            if (initial_bf==NULL)
+                                bf.init(as_b, nh, seedstr);
+                            else
+                                bf = *initial_bf;
+                        }                        
+                        if(l >= span){
+                            work_unit.emplace_back(bf, seq->seq.s);
+                            total_nt += work_unit.back().second.length();
+                        }
                     }
-                    
-                    compute_hashes(compr_kmer, bytes_kmer, hashes1, nh);
-                    
-                    bool do_set = true;
-                    if (exclude_bf!=nullptr) {
-                       bool all_in = true;                        
-                       for(unsigned int j=0;j<min_nh;j++){                    
-                         all_in&=exclude_bf->array.test(hashes1[j] % exclude_bf->array.size());
-                       }
-                       do_set&=!all_in;
+                    catch (const std::out_of_range& oor) {
+                        ;//fprintf(stderr,"Sequence not mapped to taxid. Omitting.\n");
                     }
-                    if (include_bf!=nullptr) {
-                       bool all_in = true;                        
-                       for(unsigned int j=0;j<min_inc_nh;j++){                    
-                         all_in&=include_bf->array.test(hashes1[j] % include_bf->array.size());
-                       }
-                       do_set&=all_in;
-                    }
-                    if (do_set){
-                      for(unsigned int j=0;j<nh;j++){                    
-                        bf.array.set(hashes1[j] % bf.array.size(),true);
-                      }
-                    }
-                    
                 }
-            }
-        } 
-        catch (const std::out_of_range& oor) {
-            fprintf(stderr,"Sequence not mapped to taxid. Omitting.\n");
-        }
-        }        
-        //printf("seq: %s\n", seq->seq.s);
-    }
+            } // end critical            
+            if (empty_workunit)
+                break;     
+        
+            for (size_t k = 0; k < work_unit.size(); k++) {
+                Bloom & bf = work_unit[k].first;
+                const uchar *dna=(uchar*)work_unit[k].second.c_str();
+                
+                long start = 0;
+                long end = work_unit[k].second.length()-span+1;
+                if (!(start<end))
+                    continue;
+                long num_threads = (end-start+work_unit_size-1)/work_unit_size;
+                num_threads = num_threads>(long)max_threads?max_threads:num_threads;
+                //Enlarge work_unit_size so it's optimal
+                long curr_work_unit_size = (end-start+num_threads-1)/num_threads;
+                //curr_work_unit_size = curr_work_unit_size<(long)work_unit_size ? work_unit_size:curr_work_unit_size;
+                #pragma omp parallel num_threads(num_threads)
+                {
+                    uchar * compr_kmer = new uchar[bytes_kmer];
+                    uint64_t * hashes1 = new uint64_t[nh+1];
+                    
+                    long mystart, myend;
+                    while (true) {
+                        #pragma omp critical(create_many_get_input_range)
+                        {                    
+                            mystart = start;
+                            myend = end+curr_work_unit_size;
+                            myend = myend>end?end:myend;
+                            start = myend;                    
+                        }// end critical
+                        
+                        if (!(mystart<myend))
+                            break;
+                        
+                        for (long i=mystart;i<myend;i++){
+                            for(int direction=0;direction<=both_directions;direction++){
+                                
+                                if(compress_kmer(&dna[i],&bf.seed,bytes_kmer,compr_kmer,direction)!=0){
+                                    continue;
+                                }
+                                
+                                compute_hashes(compr_kmer, bytes_kmer, hashes1, nh);
+                                
+                                bool do_set = true;
+                                if (exclude_bf!=NULL) {
+                                bool all_in = true;                        
+                                for(unsigned int j=0;j<min_nh;j++){                    
+                                    all_in&=exclude_bf->array.test(hashes1[j] % exclude_bf->array.size());
+                                }
+                                do_set&=!all_in;
+                                }
+                                if (include_bf!=NULL) {
+                                bool all_in = true;                        
+                                for(unsigned int j=0;j<min_inc_nh;j++){                    
+                                    all_in&=include_bf->array.test(hashes1[j] % include_bf->array.size());
+                                }
+                                do_set&=all_in;
+                                }
+                                if (do_set){
+                                for(unsigned int j=0;j<nh;j++){                    
+				    //#pragma omp atomic set inside external/.../dynamic_bitset.hpp source
+                                    bf.array.set(hashes1[j] % bf.array.size(),true);
+                                }
+                                }
+                                
+                            }
+                        }                
+                    }  
+                    delete [] compr_kmer;
+                    delete [] hashes1;
+                } // end parallel                 
+            } //end for        
+        } //end while
+    } //end parallel
     //printf("return value: %d\n", l);
     kseq_destroy(seq);
     gzclose(fp);
-    
-    delete [] compr_kmer;
-    delete [] hashes1;
     
     DF2;
     return taxon_bloom_map;

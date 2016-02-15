@@ -23,7 +23,7 @@
 
 #include "boost/dynamic_bitset.hpp"
 #include "boost/dynamic_bitset/serialization.hpp"
-#include <map>
+#include <unordered_map>
 #include <string>
 #include <iostream>
 
@@ -100,6 +100,6 @@ private:
 
 void read_ID_to_taxon_map(const std::string & ID_to_taxon_map_filename);
 
-std::map<std::string,Bloom>* bloom_create_many_blooms(const Bloom * initial_bf, const Bloom * exclude_bf,const Bloom * include_bf, coor as_b, unsigned int nh, const char *seedstr, const char *fn, int both_directions);
+std::unordered_map<std::string,Bloom>* bloom_create_many_blooms(const Bloom * initial_bf, const Bloom * exclude_bf,const Bloom * include_bf, const coor as_b, const unsigned int nh, const char *seedstr, const char *fn, int both_directions, const size_t max_threads, const size_t work_unit_size = 100000);
 
 #endif

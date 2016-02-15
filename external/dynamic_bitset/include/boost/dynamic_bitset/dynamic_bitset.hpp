@@ -962,6 +962,7 @@ dynamic_bitset<Block, Allocator>::set(size_type pos, bool val)
     assert(pos < m_num_bits);
 
     if (val)
+        #pragma omp atomic
         m_bits[block_index(pos)] |= bit_mask(pos);
     else
         reset(pos);
@@ -986,9 +987,12 @@ dynamic_bitset<Block, Allocator>::reset(size_type pos)
 #if defined __MWERKS__ && BOOST_WORKAROUND(__MWERKS__, <= 0x3003) // 8.x
     // CodeWarrior 8 generates incorrect code when the &=~ is compiled,
     // use the |^ variation instead.. <grafik>
+    #pragma omp atomic
     m_bits[block_index(pos)] |= bit_mask(pos);
+    #pragma omp atomic
     m_bits[block_index(pos)] ^= bit_mask(pos);
 #else
+    #pragma omp atomic
     m_bits[block_index(pos)] &= ~bit_mask(pos);
 #endif
     return *this;

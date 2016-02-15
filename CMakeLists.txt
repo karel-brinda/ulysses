@@ -14,7 +14,7 @@ set(PROJECT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 #################
 
 #add_definitions(-O3 -W -Wall -Wextra -pedantic -std=c++11 -g -pg)
-SET(GCC_COVERAGE_COMPILE_FLAGS "-O3 -W -Wall -Wextra -pedantic -std=c++11") # -g -pg")
+SET(GCC_COVERAGE_COMPILE_FLAGS "-O3 -W -Wall -Wextra -pedantic -std=c++0x -fopenmp") #-g -pg")
 SET(GCC_COVERAGE_LINK_FLAGS    "") #"-pg")
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
@@ -25,6 +25,7 @@ include_directories("${PROJECT_INCLUDE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
 
 include_directories("${PROJECT_SOURCE_DIR}/external/dynamic_bitset/include/")
+include_directories("${PROJECT_SOURCE_DIR}/external/serialization/include/")
 include_directories("${PROJECT_SOURCE_DIR}/external/MurmurHash/")
 include_directories("${PROJECT_SOURCE_DIR}/external/kseq")
 
@@ -34,7 +35,7 @@ set(Boost_USE_STATIC_LIBS       OFF) # only find static libs
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 
-find_package(Boost COMPONENTS regex serialization  REQUIRED)
+find_package(Boost COMPONENTS regex REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 #link_directories(${Boost_LIBRARY_DIR})
 
@@ -49,6 +50,8 @@ include_directories(${ZLIB_INCLUDE_DIRS})
 add_subdirectory(lib)
 set(CONF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}" "${PROJECT_BINARY_DIR}")
 
+add_subdirectory(external/serialization/CMake)
+
 add_executable(ulysses
     main/main.cpp
     main/main.hpp
@@ -58,6 +61,7 @@ target_link_libraries(ulysses
         m
         ${ZLIB_LIBRARIES}
         ulysseslib
+        serialization
         ${Boost_LIBRARIES}
     )
 

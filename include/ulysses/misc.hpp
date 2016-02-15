@@ -10,6 +10,7 @@
 #define ulysses_misc_h
 
 #define DEBUG 0
+//#define NDEBUG
 
 
 #include <stdint.h>
